@@ -1,4 +1,4 @@
-[Link to the Medium article]([https://github.com](https://medium.com/better-programming/generate-and-print-your-custom-dobble-274dc888a33e))
+[Link to the Medium article](https://medium.com/better-programming/generate-and-print-your-custom-dobble-274dc888a33e)
 
 Run
 ```
