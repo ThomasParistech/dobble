@@ -2,7 +2,7 @@
 
 Run
 ```
-python3 main.py
+python3 -m dobble --symbols_folder <SYMBOL_FOLDER> --output_folder <RESULT_FOLDER>
 ```
 to execute the 4 following steps:
 - Make all images square and rotation-proof
@@ -10,5 +10,9 @@ to execute the 4 following steps:
 - Generate 57 cards with randomly drawn symbols
 - Merge Dobble cards into a scaled PDF ready to print
 
+To try on toy data, run
+```
+python3 -m dobble --symbols_folder images/symbols_examples/ --output_folder result
+```
 
-![](./dobble_evolution.gif)
+![](./images/dobble_evolution.gif)

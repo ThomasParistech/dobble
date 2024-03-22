@@ -12,8 +12,8 @@ import cv2
 import numpy as np
 from tqdm import tqdm
 
-from optim import get_cards
-from utils import new_folder
+from dobble.optim import get_cards
+from dobble.utils import new_folder
 
 DEBUG = False
 DEBUG_FINAL = False

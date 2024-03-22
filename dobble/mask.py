@@ -9,7 +9,7 @@ import cv2
 import numpy as np
 from tqdm import tqdm
 
-from utils import new_folder
+from dobble.utils import new_folder
 
 DEBUG = False
 
@@ -60,7 +60,6 @@ def main(symbols_folder: str,
         ths: Pixels the intensity of which is above this threshold are considered as white background
     """
     names = [f.name for f in os.scandir(symbols_folder)]
-    assert len(names) == 57
 
     new_folder(out_masks_folder)
 

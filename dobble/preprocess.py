@@ -9,7 +9,7 @@ import cv2
 import numpy as np
 from tqdm import tqdm
 
-from utils import new_folder
+from dobble.utils import new_folder
 
 
 def _to_square(img: np.ndarray) -> np.ndarray:

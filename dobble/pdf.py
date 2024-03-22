@@ -10,7 +10,7 @@ import img2pdf
 import numpy as np
 from tqdm import tqdm
 
-from utils import new_folder
+from dobble.utils import new_folder
 
 
 def main(cards_folder: str,
