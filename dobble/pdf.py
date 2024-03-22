@@ -75,3 +75,5 @@ def main(cards_folder: str,
     layout_fun = img2pdf.get_layout_fun(a4inpt)
     with open(pdf_path, "wb") as f:
         f.write(img2pdf.convert(batches_paths, layout_fun=layout_fun))
+
+    print(f"Congratulations! Your Dobble has been saved at {os.path.abspath(pdf_path)}")
