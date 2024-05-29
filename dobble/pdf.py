@@ -11,6 +11,8 @@ import numpy as np
 from tqdm import tqdm
 
 from dobble.utils import new_folder
+from dobble.utils import assert_len
+from dobble.utils import list_image_files
 
 
 def main(cards_folder: str,
@@ -24,8 +26,8 @@ def main(cards_folder: str,
         out_print_folder: Output folder containing the batched cards and the PDF file
         card_size_cm: Diameter of the output Dobble cards to print
     """
-    names = [f.name for f in os.scandir(cards_folder)]
-    assert len(names) == 57
+    names = list_image_files(cards_folder)
+    assert_len(names, 57)
     names += [None]  # Pad to have an even size
 
     pdf_path = os.path.join(out_print_folder, "cards.pdf")

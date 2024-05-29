@@ -13,6 +13,8 @@ import numpy as np
 from tqdm import tqdm
 
 from dobble.optim import get_cards
+from dobble.utils import assert_len
+from dobble.utils import list_image_files
 from dobble.utils import new_folder
 
 DEBUG = False
@@ -237,11 +239,11 @@ def main(masks_folder: str,
         circle_width_pix: Width of the circle around each card. Covariant with card_size_pix
         n_iter: Number of evolution steps for each card
     """
-    names = [f.name for f in os.scandir(masks_folder)]
-    assert len(names) == 57
+    names = list_image_files(masks_folder)
+    assert_len(names, 57)
 
     cards = get_cards()
-    assert len(cards) == 57
+    assert_len(cards, 57)
 
     new_folder(out_cards_folder)
 

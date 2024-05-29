@@ -10,6 +10,7 @@ import numpy as np
 from tqdm import tqdm
 
 from dobble.utils import new_folder
+from dobble.utils import list_image_files
 
 DEBUG = False
 
@@ -59,7 +60,7 @@ def main(symbols_folder: str,
         margin_pix: Dilation applied around the mask, covariant with computing_size_pix
         ths: Pixels the intensity of which is above this threshold are considered as white background
     """
-    names = [f.name for f in os.scandir(symbols_folder)]
+    names = list_image_files(symbols_folder)
 
     new_folder(out_masks_folder)
 

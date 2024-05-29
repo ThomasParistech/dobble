@@ -2,6 +2,7 @@
 """Make all images square and rotation-proof"""
 
 
+from dobble.utils import assert_len, list_image_files
 import matplotlib.pyplot as plt
 import math
 import os
@@ -50,14 +51,6 @@ def _set_white_background(img: np.ndarray) -> np.ndarray:
     img = img.astype(np.uint8)
 
     return img
-
-
-def list_image_files(images_folder: str) -> List[str]:
-    """List image files."""
-    image_extensions = ('.jpg', '.jpeg', '.png', '.gif', '.bmp', '.tiff')
-    return [f.name
-            for f in os.scandir(images_folder)
-            if f.name.lower().endswith(image_extensions)]
 
 
 def main(images_folder: str,
