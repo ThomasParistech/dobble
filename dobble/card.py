@@ -30,11 +30,10 @@ SCALE_TARGETS_LIST = [
 SCALE_TARGETS_LIST = [[np.sqrt(2)*s for s in scales]
                       for scales in SCALE_TARGETS_LIST]
 
-TRANSLATION_MAX_STEP = 30
-ANGLE_MAX_STEP = 90
+DISK_OCCUPANCY_TARGET = 0.8
 
-SCALE_RATIO_MIN = 0.6
-SCALE_RATIO_MAX = 3.0
+TRANSLATION_MAX_STEP = 60
+ANGLE_MAX_STEP = 90
 
 
 SQUARE_SIZE = 1.0/(np.sqrt(2)*3)
@@ -52,6 +51,16 @@ def rotate(image: np.ndarray, angle: float, background: Union[Tuple[int, int, in
     rotated = cv2.warpAffine(image, M, (w, h), borderValue=background)
 
     return rotated
+
+
+def get_range(full_img_size: int, small_img_size: int, begin_offset: int) -> Tuple[int, int, int, int]:
+    """Get valid index range when applying a small image onto a larger one, if it goes outside the image frame."""
+    mask_begin = max(begin_offset, 0)
+    mask_end = min(begin_offset+small_img_size, full_img_size)
+    img_begin = mask_begin - begin_offset
+    img_end = mask_end - begin_offset
+    assert mask_end-mask_begin == img_end-img_begin
+    return mask_begin, mask_end, img_begin, img_end
 
 
 @dataclass
@@ -73,25 +82,52 @@ class Symbol:
         new_size = int(scale*self.ref_mask.shape[0])
         y_bot = y_top+new_size
         x_right = x_left+new_size
-        if x_left < 0 or x_right >= full_size or y_top < 0 or y_bot >= full_size:
+
+        # Check if symbol image is completely outside the full mask
+        if x_right <= 0 or x_left >= full_size-1 or y_bot <= 0 or y_top >= full_size-1:
             return False
 
         rot = rotate(self.ref_mask, angle, 0)
         resized = cv2.resize(rot, (new_size, new_size))
 
-        n_inter = np.count_nonzero(np.logical_and(resized,
-                                                  full_mask[y_top:y_bot, x_left:x_right]))
+        mask_y_begin, mask_y_end, img_y_begin, img_y_end = get_range(full_size, new_size,
+                                                                     y_top)
+        mask_x_begin, mask_x_end, img_x_begin, img_x_end = get_range(full_size, new_size,
+                                                                     x_left)
+
+        cropped_img = resized[img_y_begin:img_y_end, img_x_begin:img_x_end]
+        cropped_mask = full_mask[mask_y_begin:mask_y_end,
+                                 mask_x_begin:mask_x_end]
+        # Check that all the True pixels are kept
+        if np.count_nonzero(cropped_img) != np.count_nonzero(resized):
+            return False
+
+        n_inter = np.count_nonzero(np.logical_and(cropped_img, cropped_mask))
         return n_inter == 0
 
     def draw_mask(self, mask: np.ndarray):
         """Superimpose the mask symbol on the input image"""
         assert len(mask.shape) == 2
+        full_size = mask.shape[0]
+
         rot = rotate(self.ref_mask, self.angle, background=0)
         new_size = int(self.scale*self.ref_mask.shape[0])
         resized = cv2.resize(rot, (new_size, new_size))
 
-        mask[self.y_top:self.y_top+new_size,
-             self.x_left:self.x_left+new_size] |= resized
+        mask_y_begin, mask_y_end, img_y_begin, img_y_end = get_range(full_size, new_size,
+                                                                     self.y_top)
+        mask_x_begin, mask_x_end, img_x_begin, img_x_end = get_range(full_size, new_size,
+                                                                     self.x_left)
+
+        mask[mask_y_begin:mask_y_end,
+             mask_x_begin:mask_x_end] |= resized[img_y_begin:img_y_end,
+                                                 img_x_begin:img_x_end]
+
+    def get_center(self) -> np.ndarray:
+        """Return mask center XY."""
+        new_size = int(self.scale*self.ref_mask.shape[0])
+        return np.array([self.x_left + 0.5*new_size,
+                         self.y_top + 0.5*new_size])
 
 
 class Card:
@@ -120,11 +156,16 @@ class Card:
         scale_targets = SCALE_TARGETS_LIST[idx]
         RNG.shuffle(scale_targets)
 
+        total_target_area = sum(scale_target*np.count_nonzero(mask)
+                                for mask, scale_target in zip(masks, scale_targets))
+        disk_area = np.pi * self.size_pix**2 / 4
+        occupancy = total_target_area / disk_area
+
         for (x, y), mask, scale_target in zip(list_xy, masks, scale_targets):
             self.symbols.append(
                 Symbol(ref_mask=mask,
                        scale=1.0,
-                       scale_target=scale_target,
+                       scale_target=scale_target * DISK_OCCUPANCY_TARGET / occupancy,
                        angle=RNG.integers(0, 360),
                        y_top=int(y*self.size_pix),
                        x_left=int(x*self.size_pix)))
@@ -235,8 +276,18 @@ def main(masks_folder: str,
             resized_symbol = cv2.resize(rot_symbol, (new_size, new_size),
                                         interpolation=cv2.INTER_AREA)
 
-            card_img[y_top:y_top+new_size,
-                     x_left:x_left+new_size][resized_mask > 0] = resized_symbol[resized_mask > 0]
+            mask_y_begin, mask_y_end, img_y_begin, img_y_end = get_range(card_size_pix, new_size,
+                                                                         y_top)
+            mask_x_begin, mask_x_end, img_x_begin, img_x_end = get_range(card_size_pix, new_size,
+                                                                         x_left)
+
+            cropped_resized_mask = resized_mask[img_y_begin:img_y_end,
+                                                img_x_begin:img_x_end] > 0
+            cropped_resized_symbol = resized_symbol[img_y_begin:img_y_end,
+                                                    img_x_begin:img_x_end]
+
+            card_img[mask_y_begin:mask_y_end,
+                     mask_x_begin:mask_x_end][cropped_resized_mask] = cropped_resized_symbol[cropped_resized_mask]
 
         cv2.circle(card_img, (card_size_pix // 2, card_size_pix // 2),
                    card_size_pix // 2, (0, 0, 0), circle_width_pix)
