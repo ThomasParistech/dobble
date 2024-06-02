@@ -14,6 +14,28 @@ from typing import List
 
 from dobble.utils import new_folder
 
+import glob
+import cairosvg
+
+import imagesize
+
+
+def rasterize_svg_images(images_folder: str, largest_side_pix: int) -> None:
+    """Rasterize SVG images."""
+    svg_files = glob.glob(os.path.join(images_folder, '*.svg'))
+
+    def convert_svg_to_png(in_path: str, out_path: str, set_width: bool):
+        option = "output-width" if set_width else "output-height"
+        cmd = f"cairosvg '{in_path}' -o '{out_path}' --{option} {largest_side_pix}"
+        os.system(cmd)
+
+    for in_path in tqdm(svg_files, desc="SVG to PNG"):
+        out_path = in_path.replace('.svg', '.png')
+        convert_svg_to_png(in_path, out_path, set_width=True)
+        width, height = imagesize.get(out_path)
+        if height > width:
+            convert_svg_to_png(in_path, out_path, set_width=False)
+
 
 def _to_square(img: np.ndarray) -> np.ndarray:
     h, w = img.shape[:2]
@@ -54,15 +76,19 @@ def _set_white_background(img: np.ndarray) -> np.ndarray:
 
 
 def main(images_folder: str,
-         out_images_folder: str):
+         out_images_folder: str,
+         largest_svg_side_pix: int):
     """
     Make all images square and add white margin to make sure
     the content won't be cropped after a rotation
 
     Args:
-        images_folder: Folder containing colored images to preprocess
+        images_folder: Input folder containing colored images to preprocess
         out_images_folder: Output folder containing the square preprocessed images
+        largest_svg_side_pix: Size of the largest image side (in pix) when rasterizing a SVG image
     """
+    rasterize_svg_images(images_folder, largest_svg_side_pix)
+
     names = list_image_files(images_folder)
 
     new_folder(out_images_folder)

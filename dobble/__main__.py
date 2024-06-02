@@ -13,6 +13,7 @@ from dobble.utils import new_folder
 
 def main(symbols_folder: str,
          output_folder: str,
+         largest_svg_side_pix: int = 3000,
          mask_computing_size_pix: int = 300,
          mask_low_res_size_pix: int = 100,
          mask_margin_pix: int = 12,
@@ -26,6 +27,7 @@ def main(symbols_folder: str,
     Args:
         symbols_folder: Input Folder containing the 57 symbol images (on a white background)
         output_folder: Output result folder
+        largest_svg_side_pix: Size of the largest image side (in pix) when rasterizing a SVG image
         mask_computing_size_pix: Size of the images when finding mask contours and applying dilation
         mask_low_res_size_pix: Output size of the low resolution dumped masks
         mask_margin_pix: Dilation applied around the mask, covariant with computing_size_pix
@@ -43,7 +45,8 @@ def main(symbols_folder: str,
     print_folder = os.path.join(output_folder, "4_print")
 
     preprocess.main(images_folder=symbols_folder,
-                    out_images_folder=square_symbols_folder)
+                    out_images_folder=square_symbols_folder,
+                    largest_svg_side_pix=largest_svg_side_pix)
 
     mask.main(symbols_folder=square_symbols_folder,
               out_masks_folder=masks_folder,

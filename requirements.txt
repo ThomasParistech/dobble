@@ -1,3 +1,5 @@
+CairoSVG==2.7.1
+imagesize==1.4.1
 fire==0.5.0
 opencv-python==4.6.0.66
 img2pdf==0.4.4
