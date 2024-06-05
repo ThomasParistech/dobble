@@ -14,6 +14,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 from tqdm import tqdm
 
+from dobble.profiling import profile
+from dobble.utils import get_overlapping_image_ranges
 from dobble.utils import get_overlapping_ranges
 from dobble.utils import list_image_files
 from dobble.utils import new_folder
@@ -137,14 +139,10 @@ def _center_around_min_enclosing_circle(img: np.ndarray,
     offset_y = math.floor(c_y - 0.5*new_size)
     offset_x = math.floor(c_x - 0.5*new_size)
 
-    img_y_begin, img_y_end, new_y_begin, new_y_end = get_overlapping_ranges(img.shape[0],
-                                                                            new_size, offset_y)
-    img_x_begin, img_x_end, new_x_begin, new_x_end = get_overlapping_ranges(img.shape[0],
-                                                                            new_size, offset_x)
+    cropped_img, cropped_new_image = get_overlapping_image_ranges(img, new_image,
+                                                                  x_left=offset_x, y_top=offset_y)
 
-    new_image[new_y_begin:new_y_end,
-              new_x_begin:new_x_end] = img[img_y_begin:img_y_end,
-                                           img_x_begin:img_x_end]
+    cropped_new_image[...] = cropped_img
 
     scale = low_res_mask.shape[0] / img.shape[0]
     new_size = int(new_image.shape[0]*scale)
@@ -159,6 +157,9 @@ def _center_around_min_enclosing_circle(img: np.ndarray,
     new_low_res_mask[new_y_begin:new_y_end,
                      new_x_begin:new_x_end] = low_res_mask[img_y_begin:img_y_end,
                                                            img_x_begin:img_x_end]
+
+    new_low_res_mask = cv2.resize(new_low_res_mask, (mask_low_res_size_pix, mask_low_res_size_pix),
+                                  interpolation=cv2.INTER_NEAREST)
 
     if DEBUG_ENCLOSING_CIRCLE:
         plt.figure(figsize=(12, 6))
@@ -184,6 +185,7 @@ def _center_around_min_enclosing_circle(img: np.ndarray,
     return new_image, new_low_res_mask
 
 
+@profile
 def main(images_folder: str,
          out_images_folder: str,
          out_masks_folder: str,
@@ -227,5 +229,8 @@ def main(images_folder: str,
         img, low_res_mask = _center_around_min_enclosing_circle(img, resized_mask,
                                                                 mask_low_res_size_pix)
 
+        assert img.shape[0] == img.shape[1]
+        assert low_res_mask.shape == (mask_low_res_size_pix,
+                                      mask_low_res_size_pix)
         cv2.imwrite(output_path, img)
         cv2.imwrite(output_mask_path, low_res_mask)

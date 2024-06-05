@@ -7,7 +7,8 @@ import fire
 from dobble import card
 from dobble import pdf
 from dobble import preprocess
-from dobble.utils import LogScopeTime
+from dobble.profiling import export_profiling_events
+from dobble.profiling import LogScopeTime
 from dobble.utils import new_folder
 
 
@@ -66,6 +67,8 @@ def main(symbols_folder: str,
         pdf.main(cards_folder=cards_folder,
                  out_print_folder=print_folder,
                  card_size_cm=card_size_cm)
+
+    export_profiling_events("data/profiling.json")
 
 
 if __name__ == "__main__":

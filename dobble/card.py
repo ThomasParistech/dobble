@@ -2,6 +2,7 @@
 """Generate 57 cards with randomly drawn symbols"""
 
 import math
+import numbers
 import os
 from dataclasses import dataclass
 from typing import List
@@ -13,8 +14,9 @@ import numpy as np
 from tqdm import tqdm
 
 from dobble.optim import get_cards
+from dobble.profiling import profile
 from dobble.utils import assert_len
-from dobble.utils import get_overlapping_ranges
+from dobble.utils import get_overlapping_image_ranges
 from dobble.utils import list_image_files
 from dobble.utils import new_folder
 
@@ -45,7 +47,9 @@ XY_INIT_NORMED = [(0.5 + x * SQUARE_SIZE,
                   for y in [-1.5, -0.5, 0.5]]
 
 
-def rotate(image: np.ndarray, angle: float, background: Union[Tuple[int, int, int], int]) -> np.ndarray:
+@profile
+def rotate(image: np.ndarray, angle: int, background: Union[Tuple[int, int, int], int]) -> np.ndarray:
+    assert isinstance(angle, numbers.Integral)
     (h, w) = image.shape[:2]
     center = (w // 2, h // 2)
 
@@ -61,12 +65,13 @@ class Symbol:
     scale_target: float
 
     scale: float
-    angle: float
+    angle: int
 
     y_top: int
     x_left: int
 
-    def try_params(self, full_mask: np.ndarray, scale: float, x_left: int, y_top: int, angle: float) -> bool:
+    @profile
+    def try_params(self, full_mask: np.ndarray, scale: float, x_left: int, y_top: int, angle: int) -> bool:
         """Generate the new mask and return True if it doesn't overlap the neighboring symbols masks"""
         assert len(full_mask.shape) == 2
         full_size = full_mask.shape[0]
@@ -82,14 +87,9 @@ class Symbol:
         rot = rotate(self.ref_mask, angle, 0)
         resized = cv2.resize(rot, (new_size, new_size))
 
-        mask_y_begin, mask_y_end, img_y_begin, img_y_end = get_overlapping_ranges(full_size, new_size,
-                                                                                  y_top)
-        mask_x_begin, mask_x_end, img_x_begin, img_x_end = get_overlapping_ranges(full_size, new_size,
-                                                                                  x_left)
+        cropped_mask, cropped_img = get_overlapping_image_ranges(full_mask, resized,
+                                                                 x_left=x_left, y_top=y_top)
 
-        cropped_img = resized[img_y_begin:img_y_end, img_x_begin:img_x_end]
-        cropped_mask = full_mask[mask_y_begin:mask_y_end,
-                                 mask_x_begin:mask_x_end]
         # Check that all the True pixels are kept
         if np.count_nonzero(cropped_img) != np.count_nonzero(resized):
             return False
@@ -97,29 +97,19 @@ class Symbol:
         n_inter = np.count_nonzero(np.logical_and(cropped_img, cropped_mask))
         return n_inter == 0
 
+    @profile
     def draw_mask(self, mask: np.ndarray):
         """Superimpose the mask symbol on the input image"""
         assert len(mask.shape) == 2
-        full_size = mask.shape[0]
 
         rot = rotate(self.ref_mask, self.angle, background=0)
         new_size = int(self.scale*self.ref_mask.shape[0])
         resized = cv2.resize(rot, (new_size, new_size))
 
-        mask_y_begin, mask_y_end, img_y_begin, img_y_end = get_overlapping_ranges(full_size, new_size,
-                                                                                  self.y_top)
-        mask_x_begin, mask_x_end, img_x_begin, img_x_end = get_overlapping_ranges(full_size, new_size,
-                                                                                  self.x_left)
+        cropped_mask, cropped_img = get_overlapping_image_ranges(mask, resized,
+                                                                 x_left=self.x_left, y_top=self.y_top)
 
-        mask[mask_y_begin:mask_y_end,
-             mask_x_begin:mask_x_end] |= resized[img_y_begin:img_y_end,
-                                                 img_x_begin:img_x_end]
-
-    def get_center(self) -> np.ndarray:
-        """Return mask center XY."""
-        new_size = int(self.scale*self.ref_mask.shape[0])
-        return np.array([self.x_left + 0.5*new_size,
-                         self.y_top + 0.5*new_size])
+        cropped_mask |= cropped_img
 
 
 class Card:
@@ -159,6 +149,7 @@ class Card:
                        y_top=int(y*self.size_pix),
                        x_left=int(x*self.size_pix)))
 
+    @profile
     def next(self, display: bool = False):
         """Let one symbol randomly evolve"""
         full_mask = 255*np.ones((self.size_pix, self.size_pix), dtype=np.uint8)
@@ -235,6 +226,7 @@ def allocate_scale_targets(cards: List[List[int]]) -> List[List[float]]:
     return all_scale_targets
 
 
+@profile
 def main(masks_folder: str,
          symbols_folder: str,
          out_cards_folder: str,
@@ -294,18 +286,13 @@ def main(masks_folder: str,
             resized_symbol = cv2.resize(rot_symbol, (new_size, new_size),
                                         interpolation=cv2.INTER_AREA)
 
-            mask_y_begin, mask_y_end, img_y_begin, img_y_end = get_overlapping_ranges(card_size_pix, new_size,
-                                                                                      y_top)
-            mask_x_begin, mask_x_end, img_x_begin, img_x_end = get_overlapping_ranges(card_size_pix, new_size,
-                                                                                      x_left)
+            cropped_card_img, cropped_resized_symbol = get_overlapping_image_ranges(card_img, resized_symbol,
+                                                                                    x_left=x_left, y_top=y_top)
+            _, cropped_resized_mask = get_overlapping_image_ranges(card_img, resized_mask > 0,
+                                                                   x_left=x_left, y_top=y_top)
+            assert cropped_card_img.shape[:2] == cropped_resized_mask.shape
 
-            cropped_resized_mask = resized_mask[img_y_begin:img_y_end,
-                                                img_x_begin:img_x_end] > 0
-            cropped_resized_symbol = resized_symbol[img_y_begin:img_y_end,
-                                                    img_x_begin:img_x_end]
-
-            card_img[mask_y_begin:mask_y_end,
-                     mask_x_begin:mask_x_end][cropped_resized_mask] = cropped_resized_symbol[cropped_resized_mask]
+            cropped_card_img[cropped_resized_mask] = cropped_resized_symbol[cropped_resized_mask]
 
         cv2.circle(card_img, (card_size_pix // 2, card_size_pix // 2),
                    card_size_pix // 2, (0, 0, 0), circle_width_pix)

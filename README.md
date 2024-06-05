@@ -32,4 +32,3 @@ python3 -m dobble --symbols_folder images/symbols_examples/ --output_folder resu
 # Example
 ![](./images/dobble_evolution.gif)
 
-

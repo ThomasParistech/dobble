@@ -10,11 +10,13 @@ import img2pdf
 import numpy as np
 from tqdm import tqdm
 
+from dobble.profiling import profile
 from dobble.utils import assert_len
 from dobble.utils import list_image_files
 from dobble.utils import new_folder
 
 
+@profile
 def main(cards_folder: str,
          out_print_folder: str,
          card_size_cm: float):
