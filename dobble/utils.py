@@ -2,13 +2,20 @@
 """Dobble"""
 
 
+import math
 import os
 import shutil
+from multiprocessing import cpu_count
+from typing import Any
+from typing import Callable
+from typing import Dict
 from typing import List
+from typing import Optional
 from typing import Sized
 from typing import Tuple
 
 import numpy as np
+from mpire import WorkerPool
 
 
 def new_folder(folder: str):
@@ -65,3 +72,35 @@ def get_overlapping_image_ranges(img_a: np.ndarray,
     cropped_b = img_b[b_y_begin:b_y_end, b_x_begin:b_x_end]
 
     return cropped_a, cropped_b
+
+
+def _batch_func(process_func: Callable[..., None],
+                list_kwargs: List[Dict[str, Any]]) -> List[None]:
+    """Process a batch."""
+    for kwargs in list_kwargs:
+        process_func(**kwargs)
+
+
+def multiprocess(process_func: Callable[..., None],
+                 list_kwargs: List[Dict[str, Any]],
+                 tqdm_title: Optional[str] = None):
+    """Parallelize the process of a given function on a list of inputs."""
+    if tqdm_title is None:
+        tqdm_title = process_func.__name__
+
+    n_process = len(list_kwargs)
+
+    n_jobs = math.floor(0.8 * cpu_count())
+
+    # Chunk the list of arguments into N approximately equal batches
+    batch_size = math.ceil(n_process / float(n_jobs))
+
+    with WorkerPool(n_jobs=n_jobs) as pool:
+        params = [(process_func, list_kwargs[i: i + batch_size])
+                  for i in range(0, n_process, batch_size)]
+
+        progress_bar_options = {"desc": tqdm_title, 'unit': "job"}
+
+        pool.map_unordered(_batch_func, params,
+                           progress_bar=True,
+                           progress_bar_options=progress_bar_options)
