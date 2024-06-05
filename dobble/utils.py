@@ -16,6 +16,7 @@ from typing import Tuple
 
 import numpy as np
 from mpire import WorkerPool
+from tqdm import tqdm
 
 
 def new_folder(folder: str):
@@ -83,24 +84,34 @@ def _batch_func(process_func: Callable[..., None],
 
 def multiprocess(process_func: Callable[..., None],
                  list_kwargs: List[Dict[str, Any]],
-                 tqdm_title: Optional[str] = None):
+                 tqdm_title: Optional[str] = None,
+                 n_jobs: Optional[int] = None):
     """Parallelize the process of a given function on a list of inputs."""
     if tqdm_title is None:
         tqdm_title = process_func.__name__
 
     n_process = len(list_kwargs)
 
-    n_jobs = math.floor(0.8 * cpu_count())
+    if n_jobs is None:
+        n_jobs = math.floor(0.8 * cpu_count())
 
-    # Chunk the list of arguments into N approximately equal batches
-    batch_size = math.ceil(n_process / float(n_jobs))
+    n_jobs = min(n_jobs, cpu_count())
 
-    with WorkerPool(n_jobs=n_jobs) as pool:
-        params = [(process_func, list_kwargs[i: i + batch_size])
-                  for i in range(0, n_process, batch_size)]
+    print(f"Use {n_jobs} cpus out of {cpu_count()}")
 
-        progress_bar_options = {"desc": tqdm_title, 'unit': "job"}
+    if n_jobs == 1:
+        for kwargs in tqdm(list_kwargs, desc=tqdm_title):
+            process_func(**kwargs)
+    else:
+        # Chunk the list of arguments into N approximately equal batches
+        batch_size = math.ceil(n_process / float(n_jobs))
 
-        pool.map_unordered(_batch_func, params,
-                           progress_bar=True,
-                           progress_bar_options=progress_bar_options)
+        with WorkerPool(n_jobs=n_jobs) as pool:
+            params = [(process_func, list_kwargs[i: i + batch_size])
+                      for i in range(0, n_process, batch_size)]
+
+            progress_bar_options = {"desc": tqdm_title, 'unit': "job"}
+
+            pool.map_unordered(_batch_func, params,
+                               progress_bar=True,
+                               progress_bar_options=progress_bar_options)

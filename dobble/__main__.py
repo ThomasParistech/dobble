@@ -21,7 +21,7 @@ def main(symbols_folder: str,
          mask_ths: int = 250,
          card_size_pix: int = 3000,
          circle_width_pix: int = 10,
-         card_n_iter: int = 1500,
+         card_n_iter: int = 1000,
          card_size_cm: float = 13.):
     """Generate Dobble PDF from 57 symbol images.
 

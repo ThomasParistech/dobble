@@ -386,8 +386,6 @@ def main(masks_folder: str,
                     "symbols": symbols,
                     "scale_targets": scale_targets}
                    for card_idx, (symbols, scale_targets) in enumerate(zip(cards, scale_targets_per_card))]
-    if DEBUG or DEBUG_FINAL:
-        for kwargs in tqdm(list_kwargs, desc="Generate Cards"):
-            generate_card(**kwargs)
-    else:
-        multiprocess(generate_card, list_kwargs, tqdm_title="Generate Cards")
+
+    multiprocess(generate_card, list_kwargs, tqdm_title="Generate Cards",
+                 n_jobs=1 if DEBUG or DEBUG_FINAL else None)
