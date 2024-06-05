@@ -10,9 +10,9 @@ import img2pdf
 import numpy as np
 from tqdm import tqdm
 
-from dobble.utils import new_folder
 from dobble.utils import assert_len
 from dobble.utils import list_image_files
+from dobble.utils import new_folder
 
 
 def main(cards_folder: str,

@@ -5,9 +5,9 @@ import os
 import fire
 
 from dobble import card
-from dobble import mask
 from dobble import pdf
 from dobble import preprocess
+from dobble.utils import LogScopeTime
 from dobble.utils import new_folder
 
 
@@ -16,7 +16,7 @@ def main(symbols_folder: str,
          largest_svg_side_pix: int = 3000,
          mask_computing_size_pix: int = 300,
          mask_low_res_size_pix: int = 100,
-         mask_margin_pix: int = 12,
+         mask_margin_pix: int = 20,
          mask_ths: int = 250,
          card_size_pix: int = 3000,
          circle_width_pix: int = 10,
@@ -44,27 +44,28 @@ def main(symbols_folder: str,
     cards_folder = os.path.join(output_folder, "3_cards")
     print_folder = os.path.join(output_folder, "4_print")
 
-    preprocess.main(images_folder=symbols_folder,
-                    out_images_folder=square_symbols_folder,
-                    largest_svg_side_pix=largest_svg_side_pix)
+    with LogScopeTime("Preprocessing"):
+        preprocess.main(images_folder=symbols_folder,
+                        out_images_folder=square_symbols_folder,
+                        out_masks_folder=masks_folder,
+                        mask_computing_size_pix=mask_computing_size_pix,
+                        mask_low_res_size_pix=mask_low_res_size_pix,
+                        mask_margin_pix=mask_margin_pix,
+                        mask_ths=mask_ths,
+                        largest_svg_side_pix=largest_svg_side_pix)
 
-    mask.main(symbols_folder=square_symbols_folder,
-              out_masks_folder=masks_folder,
-              computing_size_pix=mask_computing_size_pix,
-              low_res_size_pix=mask_low_res_size_pix,
-              margin_pix=mask_margin_pix,
-              ths=mask_ths)
+    with LogScopeTime("Cards"):
+        card.main(masks_folder=masks_folder,
+                  symbols_folder=square_symbols_folder,
+                  out_cards_folder=cards_folder,
+                  card_size_pix=card_size_pix,
+                  circle_width_pix=circle_width_pix,
+                  n_iter=card_n_iter)
 
-    card.main(masks_folder=masks_folder,
-              symbols_folder=square_symbols_folder,
-              out_cards_folder=cards_folder,
-              card_size_pix=card_size_pix,
-              circle_width_pix=circle_width_pix,
-              n_iter=card_n_iter)
-
-    pdf.main(cards_folder=cards_folder,
-             out_print_folder=print_folder,
-             card_size_cm=card_size_cm)
+    with LogScopeTime("PDF"):
+        pdf.main(cards_folder=cards_folder,
+                 out_print_folder=print_folder,
+                 card_size_cm=card_size_cm)
 
 
 if __name__ == "__main__":

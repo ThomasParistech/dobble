@@ -14,6 +14,7 @@ from tqdm import tqdm
 
 from dobble.optim import get_cards
 from dobble.utils import assert_len
+from dobble.utils import get_overlapping_ranges
 from dobble.utils import list_image_files
 from dobble.utils import new_folder
 
@@ -54,16 +55,6 @@ def rotate(image: np.ndarray, angle: float, background: Union[Tuple[int, int, in
     return rotated
 
 
-def get_range(full_img_size: int, small_img_size: int, begin_offset: int) -> Tuple[int, int, int, int]:
-    """Get valid index range when applying a small image onto a larger one, if it goes outside the image frame."""
-    mask_begin = max(begin_offset, 0)
-    mask_end = min(begin_offset+small_img_size, full_img_size)
-    img_begin = mask_begin - begin_offset
-    img_end = mask_end - begin_offset
-    assert mask_end-mask_begin == img_end-img_begin
-    return mask_begin, mask_end, img_begin, img_end
-
-
 @dataclass
 class Symbol:
     ref_mask: np.ndarray
@@ -91,10 +82,10 @@ class Symbol:
         rot = rotate(self.ref_mask, angle, 0)
         resized = cv2.resize(rot, (new_size, new_size))
 
-        mask_y_begin, mask_y_end, img_y_begin, img_y_end = get_range(full_size, new_size,
-                                                                     y_top)
-        mask_x_begin, mask_x_end, img_x_begin, img_x_end = get_range(full_size, new_size,
-                                                                     x_left)
+        mask_y_begin, mask_y_end, img_y_begin, img_y_end = get_overlapping_ranges(full_size, new_size,
+                                                                                  y_top)
+        mask_x_begin, mask_x_end, img_x_begin, img_x_end = get_overlapping_ranges(full_size, new_size,
+                                                                                  x_left)
 
         cropped_img = resized[img_y_begin:img_y_end, img_x_begin:img_x_end]
         cropped_mask = full_mask[mask_y_begin:mask_y_end,
@@ -115,10 +106,10 @@ class Symbol:
         new_size = int(self.scale*self.ref_mask.shape[0])
         resized = cv2.resize(rot, (new_size, new_size))
 
-        mask_y_begin, mask_y_end, img_y_begin, img_y_end = get_range(full_size, new_size,
-                                                                     self.y_top)
-        mask_x_begin, mask_x_end, img_x_begin, img_x_end = get_range(full_size, new_size,
-                                                                     self.x_left)
+        mask_y_begin, mask_y_end, img_y_begin, img_y_end = get_overlapping_ranges(full_size, new_size,
+                                                                                  self.y_top)
+        mask_x_begin, mask_x_end, img_x_begin, img_x_end = get_overlapping_ranges(full_size, new_size,
+                                                                                  self.x_left)
 
         mask[mask_y_begin:mask_y_end,
              mask_x_begin:mask_x_end] |= resized[img_y_begin:img_y_end,
@@ -247,9 +238,9 @@ def allocate_scale_targets(cards: List[List[int]]) -> List[List[float]]:
 def main(masks_folder: str,
          symbols_folder: str,
          out_cards_folder: str,
-         card_size_pix: int = 3000,
-         circle_width_pix: int = 3,
-         n_iter: int = 1000):
+         card_size_pix: int,
+         circle_width_pix: int,
+         n_iter: int):
     """
     Generate 57 Dobble cards from symbols masks and images
 
@@ -303,10 +294,10 @@ def main(masks_folder: str,
             resized_symbol = cv2.resize(rot_symbol, (new_size, new_size),
                                         interpolation=cv2.INTER_AREA)
 
-            mask_y_begin, mask_y_end, img_y_begin, img_y_end = get_range(card_size_pix, new_size,
-                                                                         y_top)
-            mask_x_begin, mask_x_end, img_x_begin, img_x_end = get_range(card_size_pix, new_size,
-                                                                         x_left)
+            mask_y_begin, mask_y_end, img_y_begin, img_y_end = get_overlapping_ranges(card_size_pix, new_size,
+                                                                                      y_top)
+            mask_x_begin, mask_x_end, img_x_begin, img_x_end = get_overlapping_ranges(card_size_pix, new_size,
+                                                                                      x_left)
 
             cropped_resized_mask = resized_mask[img_y_begin:img_y_end,
                                                 img_x_begin:img_x_end] > 0
