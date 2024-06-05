@@ -388,4 +388,4 @@ def main(masks_folder: str,
                    for card_idx, (symbols, scale_targets) in enumerate(zip(cards, scale_targets_per_card))]
 
     multiprocess(generate_card, list_kwargs, tqdm_title="Generate Cards",
-                 n_jobs=1 if DEBUG or DEBUG_FINAL else None)
+                 n_jobs=1 if DEBUG or DEBUG_FINAL else -1)

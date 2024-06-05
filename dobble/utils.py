@@ -94,6 +94,8 @@ def multiprocess(process_func: Callable[..., None],
 
     if n_jobs is None:
         n_jobs = math.floor(0.8 * cpu_count())
+    elif n_jobs < 0:
+        n_jobs = cpu_count()
 
     n_jobs = min(n_jobs, cpu_count())
 
