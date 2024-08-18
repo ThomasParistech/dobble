@@ -1,4 +1,4 @@
-# Dobble 
+# Generate and print you custom Dobble Game
 
 This repository contains the implementation of a generator for the Dobble game (also known as Spot It!), a popular card game known for its fun and fast-paced gameplay. The game is based on a set of cards, where each card has a unique combination of symbols, but every pair of cards shares exactly one symbol in common.
 
