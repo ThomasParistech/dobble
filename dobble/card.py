@@ -339,8 +339,9 @@ def generate_card(out_card_path: str,
 
         cropped_card_img[cropped_resized_mask] = cropped_resized_symbol[cropped_resized_mask]
 
-    cv2.circle(card_img, (card_size_pix // 2, card_size_pix // 2),
-               card_size_pix // 2, (0, 0, 0), circle_width_pix)
+    if circle_width_pix != 0:
+        cv2.circle(card_img, (card_size_pix // 2, card_size_pix // 2),
+                card_size_pix // 2, (0, 0, 0), circle_width_pix)
     cv2.imwrite(out_card_path, card_img)
 
     if DEBUG_FINAL:
