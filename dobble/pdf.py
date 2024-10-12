@@ -45,33 +45,52 @@ def main(cards_folder: str,
     w_num_pix = math.floor(w_a4_cm * pix_per_cm)
     h_num_pix = math.floor(h_a4_cm * pix_per_cm)
 
-    w_pad = w_num_pix-card_size_pix
-    h_pad = h_num_pix-card_size_pix*2
+    # get maximum number of patch to add in the final image
+    nb_patch_in_w = math.floor(w_num_pix / card_size_pix)
+    nb_patch_in_h = math.floor(h_num_pix / card_size_pix)
+
+    w_pad = w_num_pix-card_size_pix * nb_patch_in_w
+    h_pad = h_num_pix-card_size_pix * nb_patch_in_h
 
     assert w_pad > 0 and h_pad > 0
-    dh = int(h_pad/3)
-    h_patch_top = 255*np.ones((dh, card_size_pix, 3), np.uint8)
-    h_patch_mid = 255*np.ones((h_pad-2*dh, card_size_pix, 3), np.uint8)
-    h_patch_bot = 255*np.ones((dh, card_size_pix, 3), np.uint8)
+    dh = int(h_pad/(1+nb_patch_in_h))
+    h_patch = 255*np.ones((dh, w_num_pix, 3), np.uint8)
+    h_patch_bot = 255*np.ones((h_pad-(dh*nb_patch_in_h), w_num_pix, 3), np.uint8)
 
-    dw = int(w_pad/2)
-    w_patch_left = 255*np.ones((h_num_pix, dw, 3), np.uint8)
-    w_patch_right = 255*np.ones((h_num_pix, w_pad-dw, 3), np.uint8)
+    dw = int(w_pad/(1+nb_patch_in_w))
+    w_patch = 255*np.ones((card_size_pix, dw, 3), np.uint8)
+    w_patch_right = 255*np.ones((card_size_pix, w_pad-(dw*nb_patch_in_w), 3), np.uint8)
 
+    nb_patch_per_batch = nb_patch_in_w*nb_patch_in_h
+    nb_of_batch = math.ceil(len(names)/(nb_patch_per_batch))
     batches_paths = []
-    for k in tqdm(range(29), "Batch cards"):
+    for k in tqdm(range(nb_of_batch), "Batch cards"):
         batch_path = os.path.join(batches_folder, f"batch_cards_{k}.png")
 
         batch_images = [cv2.imread(os.path.join(cards_folder, name))
                         if name is not None else 255*np.ones_like(first_img)
-                        for name in names[2*k:2*k+2]]
+                        for name in names[
+                            nb_patch_per_batch*k:nb_patch_per_batch*k+nb_patch_per_batch
+                            ]]
 
-        batch_img = cv2.vconcat([h_patch_top,
-                                 batch_images[0],
-                                 h_patch_mid,
-                                 batch_images[1],
-                                 h_patch_bot])
-        batch_img = cv2.hconcat([w_patch_left, batch_img, w_patch_right])
+        columns = []
+        for column in range(nb_patch_in_h):
+            columns.append(h_patch)
+            temp_line = []
+            for line in range(nb_patch_in_w):
+                temp_line.append(w_patch)
+                idx = line*nb_patch_in_h+column
+                if idx < len(batch_images):
+                    temp_line.append(batch_images[idx])
+                else: # if no more cards to add, pad with white
+                    temp_line.append(255*np.ones_like(first_img))
+            temp_line.append(w_patch_right)
+            batch_img = cv2.hconcat(temp_line)
+            columns.append(batch_img)
+
+        columns.append(h_patch_bot)
+        batch_img = cv2.vconcat(columns)
+
         cv2.imwrite(batch_path, batch_img)
         batches_paths.append(batch_path)
 
