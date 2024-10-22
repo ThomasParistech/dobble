@@ -34,7 +34,7 @@ def main(symbols_folder: str,
         mask_margin_pix: Dilation applied around the mask, covariant with computing_size_pix
         mask_ths: Pixels the intensity of which is above this threshold are considered as white background
         card_size_pix: Size of the output high-resolution cards
-        circle_width_pix: Width of the circle around each card. Covariant with card_size_pix
+        circle_width_pix: Width of the circle around each card. Use 0 to remove circle. Covariant with card_size_pix
         card_n_iter: Number of evolution steps for each card
         card_size_cm: Diameter of the output Dobble cards to print
     """

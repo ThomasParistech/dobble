@@ -363,7 +363,7 @@ def main(masks_folder: str,
         symbols_folder: Folder containig the high-resolution symbols colored images
         out_cards_folder: Output folder containing the high-resolution random drawn cards
         card_size_pix: Size of the output high-resolution cards
-        circle_width_pix: Width of the circle around each card. Covariant with card_size_pix
+        circle_width_pix: Width of the circle around each card. Use 0 to remove circle. Covariant with card_size_pix
         n_iter: Number of evolution steps for each card
     """
     names = list_image_files(masks_folder)
