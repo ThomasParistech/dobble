@@ -34,6 +34,8 @@ To try on toy data, run
 python3 -m dobble --symbols_folder images/symbols_examples/ --output_folder result
 ```
 
+*Tip: you can use a "circle punch" to cut the printed cards.*
+
 
 # Example
 ![](./images/dobble_evolution.gif)

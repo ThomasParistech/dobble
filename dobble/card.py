@@ -339,8 +339,9 @@ def generate_card(out_card_path: str,
 
         cropped_card_img[cropped_resized_mask] = cropped_resized_symbol[cropped_resized_mask]
 
-    cv2.circle(card_img, (card_size_pix // 2, card_size_pix // 2),
-               card_size_pix // 2, (0, 0, 0), circle_width_pix)
+    if circle_width_pix is not None:
+        cv2.circle(card_img, (card_size_pix // 2, card_size_pix // 2),
+                   card_size_pix // 2, (0, 0, 0), circle_width_pix)
     cv2.imwrite(out_card_path, card_img)
 
     if DEBUG_FINAL:
@@ -353,7 +354,7 @@ def main(masks_folder: str,
          symbols_folder: str,
          out_cards_folder: str,
          card_size_pix: int,
-         circle_width_pix: int,
+         circle_width_pix: Optional[int],
          n_iter: int):
     """Generate 57 Dobble cards from symbols masks and images.
 
@@ -362,7 +363,7 @@ def main(masks_folder: str,
         symbols_folder: Folder containig the high-resolution symbols colored images
         out_cards_folder: Output folder containing the high-resolution random drawn cards
         card_size_pix: Size of the output high-resolution cards
-        circle_width_pix: Width of the circle around each card. Covariant with card_size_pix
+        circle_width_pix: Width of the circle around each card. Use None to remove circle. Covariant with card_size_pix
         n_iter: Number of evolution steps for each card
     """
     names = list_image_files(masks_folder)
