@@ -1,6 +1,7 @@
 # /usr/bin/python3
 """Dobble"""
 import os
+from typing import Optional
 
 import fire
 
@@ -20,7 +21,7 @@ def main(symbols_folder: str,
          mask_margin_pix: int = 20,
          mask_ths: int = 250,
          card_size_pix: int = 3000,
-         circle_width_pix: int = 10,
+         circle_width_pix: Optional[int] = 10,
          card_n_iter: int = 1000,
          card_size_cm: float = 13.):
     """Generate Dobble PDF from 57 symbol images.
@@ -34,7 +35,7 @@ def main(symbols_folder: str,
         mask_margin_pix: Dilation applied around the mask, covariant with computing_size_pix
         mask_ths: Pixels the intensity of which is above this threshold are considered as white background
         card_size_pix: Size of the output high-resolution cards
-        circle_width_pix: Width of the circle around each card. Use 0 to remove circle. Covariant with card_size_pix
+        circle_width_pix: Width of the circle around each card. Use None to remove circle. Covariant with card_size_pix
         card_n_iter: Number of evolution steps for each card
         card_size_cm: Diameter of the output Dobble cards to print
     """
