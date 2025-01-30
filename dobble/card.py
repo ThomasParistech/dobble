@@ -183,7 +183,7 @@ class Symbol:
 
 class Card:
     """
-    Start with 8 symbols of the same size in the middle of the image card
+    Start with N symbols of the same size in the middle of the image card
     and let them evolve overtime to randomly translate, rotate and shrink/grow,
     under the constraint of non-overlapping
 
@@ -191,18 +191,19 @@ class Card:
     enough to estimate the overlap.
     """
 
-    def __init__(self, masks: List[np.ndarray],
+    def __init__(self, n:int, masks: List[np.ndarray],
                  scale_targets: List[float]) -> None:
         """Init from a list of 8 low-resolution symbol masks"""
-        assert len(masks) == 8
+        assert len(masks) == n
 
+        self.n = n
         self.size_pix = math.ceil(masks[0].shape[0] / SQUARE_SIZE)
         self.center = (self.size_pix // 2, self.size_pix // 2)
 
         self.symbols: List[Symbol] = []
         list_xy = np.array(XY_INIT_NORMED)
         RNG.shuffle(list_xy)
-        list_xy = list_xy[:8]
+        list_xy = list_xy[:n]
 
         total_target_area = sum(scale_target*np.count_nonzero(mask)
                                 for mask, scale_target in zip(masks, scale_targets))
@@ -224,7 +225,7 @@ class Card:
         full_mask = 255*np.ones((self.size_pix, self.size_pix), dtype=np.uint8)
         cv2.circle(full_mask, self.center, self.center[0], 0, -1)
 
-        selected_idx = RNG.integers(0, 8)
+        selected_idx = RNG.integers(0, self.n)
         for k, symbol in enumerate(self.symbols):
             if k != selected_idx:
                 symbol.draw_mask(full_mask)
@@ -267,9 +268,11 @@ class Card:
         cv2.waitKey(wait_key)
 
 
-def allocate_scale_targets(cards: List[List[int]]) -> List[List[float]]:
+def allocate_scale_targets(cards: List[List[int]], n) -> List[List[float]]:
     """Allocate scale targets while ensuring that each symbol appears at least once with a large scale."""
-    scales_per_symbol = [[] for _ in range(57)]
+    c = n**2 - n + 1
+
+    scales_per_symbol = [[] for _ in range(c)]
 
     def compute_score(scales: List[float]) -> float:
         if len(scales) == 0:
@@ -280,7 +283,7 @@ def allocate_scale_targets(cards: List[List[int]]) -> List[List[float]]:
     for symbols in cards:
 
         idx = RNG.integers(0, len(SCALE_TARGETS_LIST))
-        scale_targets = np.array(sorted(SCALE_TARGETS_LIST[idx], reverse=True))
+        scale_targets = np.array(sorted(SCALE_TARGETS_LIST[idx][:n], reverse=True))
 
         scores = [compute_score(scales_per_symbol[s]) for s in symbols]
         scale_targets[np.argsort(scores)] = scale_targets
@@ -298,6 +301,7 @@ def generate_card(out_card_path: str,
                   symbols_folder: str,
                   card_size_pix: int,
                   circle_width_pix: int,
+                  n_symbols: int,
                   n_iter: int,
                   names: List[str],
                   symbols: List[int],
@@ -307,7 +311,7 @@ def generate_card(out_card_path: str,
                         cv2.IMREAD_GRAYSCALE)
              for symbol_idx in symbols]
 
-    card = Card(masks, scale_targets)
+    card = Card(n_symbols, masks, scale_targets)
     for _ in range(n_iter):
         card.next()
 
@@ -355,6 +359,7 @@ def main(masks_folder: str,
          out_cards_folder: str,
          card_size_pix: int,
          circle_width_pix: Optional[int],
+         n_symbols: int,
          n_iter: int):
     """Generate 57 Dobble cards from symbols masks and images.
 
@@ -366,16 +371,17 @@ def main(masks_folder: str,
         circle_width_pix: Width of the circle around each card. Use None to remove circle. Covariant with card_size_pix
         n_iter: Number of evolution steps for each card
     """
+    c = n_symbols **2 - n_symbols + 1
     names = list_image_files(masks_folder)
-    assert_len(names, 57)
+    assert_len(names, c)
 
-    cards = get_cards()
-    assert_len(cards, 57)
+    cards = get_cards(n_symbols=n_symbols)
+    assert_len(cards, c)
 
     new_folder(out_cards_folder)
 
-    scale_targets_per_card = allocate_scale_targets(cards)
-    assert_len(scale_targets_per_card, 57)
+    scale_targets_per_card = allocate_scale_targets(cards, n=n_symbols)
+    assert_len(scale_targets_per_card, c)
 
     list_kwargs = [{"out_card_path": os.path.join(out_cards_folder, f"card_{card_idx}.png"),
                     "masks_folder": masks_folder,
@@ -383,6 +389,7 @@ def main(masks_folder: str,
                     "card_size_pix": card_size_pix,
                     "circle_width_pix": circle_width_pix,
                     "n_iter": n_iter,
+                    "n_symbols": n_symbols,
                     "names": names,
                     "symbols": symbols,
                     "scale_targets": scale_targets}
