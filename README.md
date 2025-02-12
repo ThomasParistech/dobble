@@ -4,6 +4,8 @@ This repository contains the implementation of a generator for the Dobble game (
 
 This generator is designed to let you provide 57 custom symbols, and it will automatically generate a print-ready PDF containing 57 cards, each featuring 8 symbols.
 
+Using the junior version, you can provide 31 custom symbols, and it will automatically generate 31 cards, each featuring 6 symbols.
+
 # Medium Article
 
 For a detailed explanation of the algorithm used, please refer to my [`Medium article`](https://medium.com/better-programming/generate-and-print-your-custom-dobble-274dc888a33e) where I explain the different steps of the algorithm.
@@ -33,6 +35,12 @@ To try on toy data, run
 ```
 python3 -m dobble --symbols_folder images/symbols_examples/ --output_folder result
 ```
+
+To run the junior version, add the `junior_size` flag:
+```
+python3 -m dobble --junior_size --symbols_folder images/symbols_examples_junior/ --output_folder result
+```
+
 
 *Tip: you can use a "circle punch" to cut the printed cards.*
 

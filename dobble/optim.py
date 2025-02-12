@@ -3,6 +3,10 @@
 
 from typing import List
 
+def get_n_cards(n_symbols_per_card: int) -> int:
+    """Get the number of cards for a given number of symbols per card."""
+    return n_symbols_per_card**2 - n_symbols_per_card + 1
+
 def get_cards(n_symbols: int) -> List[List[int]]:
     """
     Given S = N^2 + N + 1 cards, find M cards with N symbols per card such that there's
@@ -22,7 +26,7 @@ def get_cards(n_symbols: int) -> List[List[int]]:
     n = n_symbols - 1
 
     #Total number of cards that can be generated following the Dobble rules
-    numberOfCards = n**2 + n + 1  #e.g. 7^2 + 7 + 1 = 57
+    numberOfCards = get_n_cards(n_symbols)
 
     #Add first set of n+1 cards (e.g. 8 cards)
     for i in range(n+1):  

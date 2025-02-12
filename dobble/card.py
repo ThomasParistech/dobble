@@ -16,7 +16,7 @@ import cv2
 import numpy as np
 from tqdm import tqdm
 
-from dobble.optim import get_cards
+from dobble.optim import get_cards, get_n_cards
 from dobble.profiling import profile
 from dobble.utils import assert_len
 from dobble.utils import get_overlapping_image_ranges
@@ -270,7 +270,7 @@ class Card:
 
 def allocate_scale_targets(cards: List[List[int]], n) -> List[List[float]]:
     """Allocate scale targets while ensuring that each symbol appears at least once with a large scale."""
-    c = n**2 - n + 1
+    c = get_n_cards(n)
 
     scales_per_symbol = [[] for _ in range(c)]
 
@@ -294,7 +294,6 @@ def allocate_scale_targets(cards: List[List[int]], n) -> List[List[float]]:
         all_scale_targets.append(scale_targets.tolist())
 
     return all_scale_targets
-
 
 def generate_card(out_card_path: str,
                   masks_folder: str,
@@ -371,7 +370,7 @@ def main(masks_folder: str,
         circle_width_pix: Width of the circle around each card. Use None to remove circle. Covariant with card_size_pix
         n_iter: Number of evolution steps for each card
     """
-    c = n_symbols **2 - n_symbols + 1
+    c = get_n_cards(n_symbols)
     names = list_image_files(masks_folder)
     assert_len(names, c)
 
