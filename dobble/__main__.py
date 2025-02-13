@@ -22,6 +22,7 @@ def main(symbols_folder: str,
          mask_ths: int = 250,
          card_size_pix: int = 3000,
          circle_width_pix: Optional[int] = 10,
+         junior_size: bool = False,
          card_n_iter: int = 1000,
          card_size_cm: float = 13.):
     """Generate Dobble PDF from 57 symbol images.
@@ -36,6 +37,7 @@ def main(symbols_folder: str,
         mask_ths: Pixels the intensity of which is above this threshold are considered as white background
         card_size_pix: Size of the output high-resolution cards
         circle_width_pix: Width of the circle around each card. Use None to remove circle. Covariant with card_size_pix
+        junior_size: Use the junior version of the game (6 symbols per card) instead of the standard version (8 symbols per card)
         card_n_iter: Number of evolution steps for each card
         card_size_cm: Diameter of the output Dobble cards to print
     """
@@ -45,6 +47,8 @@ def main(symbols_folder: str,
     masks_folder = os.path.join(output_folder, "2_masks")
     cards_folder = os.path.join(output_folder, "3_cards")
     print_folder = os.path.join(output_folder, "4_print")
+
+    n_symbols_per_card = 6 if junior_size else 8
 
     with LogScopeTime("Preprocessing"):
         preprocess.main(images_folder=symbols_folder,
@@ -62,12 +66,14 @@ def main(symbols_folder: str,
                   out_cards_folder=cards_folder,
                   card_size_pix=card_size_pix,
                   circle_width_pix=circle_width_pix,
+                  n_symbols=n_symbols_per_card,
                   n_iter=card_n_iter)
 
     with LogScopeTime("PDF"):
         pdf.main(cards_folder=cards_folder,
                  out_print_folder=print_folder,
-                 card_size_cm=card_size_cm)
+                 card_size_cm=card_size_cm,
+                 n_symbols_per_card = n_symbols_per_card)
 
     export_profiling_events("data/profiling.json")
 

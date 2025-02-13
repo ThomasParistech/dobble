@@ -19,7 +19,8 @@ from dobble.utils import new_folder
 @profile
 def main(cards_folder: str,
          out_print_folder: str,
-         card_size_cm: float):
+         card_size_cm: float,
+         n_symbols_per_card: int):
     """
     Merge Dobble cards into a scaled PDF ready to print
 
@@ -27,9 +28,12 @@ def main(cards_folder: str,
         cards_folder: Folder containing the high-res Dobble cards images
         out_print_folder: Output folder containing the batched cards and the PDF file
         card_size_cm: Diameter of the output Dobble cards to print
+        n_symbols_per_card: Number of symbols per card
     """
     names = list_image_files(cards_folder)
-    assert_len(names, 57)
+
+    n_cards = n_symbols_per_card**2 - n_symbols_per_card + 1
+    assert_len(names, n_cards)
     names += [None]  # Pad to have an even size
 
     pdf_path = os.path.join(out_print_folder, "cards.pdf")
