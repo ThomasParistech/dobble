@@ -10,6 +10,8 @@ from dobble import pdf
 from dobble import preprocess
 from dobble.profiling import export_profiling_events
 from dobble.profiling import LogScopeTime
+from dobble.utils import assert_len
+from dobble.utils import list_image_files
 from dobble.utils import new_folder
 
 
@@ -41,6 +43,11 @@ def main(symbols_folder: str,
         card_n_iter: Number of evolution steps for each card
         card_size_cm: Diameter of the output Dobble cards to print
     """
+    assert os.path.isdir(symbols_folder), \
+        f"Input symbols folder {symbols_folder} does not exist"
+    assert_len(list_image_files(symbols_folder), 57,
+               msg=f"Invalid number of symbols in input folder {symbols_folder}")
+
     new_folder(output_folder)
 
     square_symbols_folder = os.path.join(output_folder, "1_square_symbols")

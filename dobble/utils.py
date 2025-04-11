@@ -25,10 +25,10 @@ def new_folder(folder: str):
     os.makedirs(folder)
 
 
-def assert_len(seq: Sized, size: int):
+def assert_len(seq: Sized, size: int, *, msg: str = ""):
     """Assert Python list has expected length."""
     assert len(seq) == size, \
-        f"Expect sequence of length {size}. Got length {len(seq)}."
+        f"{msg} Expect sequence of length {size}. Got length {len(seq)}."
 
 
 def list_image_files(images_folder: str) -> List[str]:
