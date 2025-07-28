@@ -45,7 +45,7 @@ def main(symbols_folder: str,
     """
     assert os.path.isdir(symbols_folder), \
         f"Input symbols folder {symbols_folder} does not exist"
-    assert_len(list_image_files(symbols_folder), 57,
+    assert_len(list_image_files(symbols_folder), 31 if junior_size else 57,
                msg=f"Invalid number of symbols in input folder {symbols_folder}")
 
     new_folder(output_folder)
