@@ -33,7 +33,7 @@ def assert_len(seq: Sized, size: int, *, msg: str = ""):
 
 def list_image_files(images_folder: str) -> List[str]:
     """List image files."""
-    image_extensions = ('.jpg', '.jpeg', '.png', '.gif', '.bmp', '.tiff')
+    image_extensions = ('.jpg', '.jpeg', '.png', '.gif', '.bmp', '.tiff', '.svg')
     return [f.name
             for f in os.scandir(images_folder)
             if f.name.lower().endswith(image_extensions)]

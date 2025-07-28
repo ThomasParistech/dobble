@@ -24,7 +24,7 @@ DEBUG_MASK = False
 DEBUG_ENCLOSING_CIRCLE = False
 
 
-def rasterize_svg_images(images_folder: str, largest_side_pix: int) -> None:
+def rasterize_svg_images(images_folder: str, svg2png_folder: str, largest_side_pix: int) -> None:
     """Rasterize SVG images."""
     svg_files = glob.glob(os.path.join(images_folder, '*.svg'))
 
@@ -34,7 +34,7 @@ def rasterize_svg_images(images_folder: str, largest_side_pix: int) -> None:
         os.system(cmd)
 
     for in_path in tqdm(svg_files, desc="SVG to PNG"):
-        out_path = in_path.replace('.svg', '.png')
+        out_path = os.path.join(svg2png_folder, os.path.basename(in_path).replace('.svg', '.png'))
         convert_svg_to_png(in_path, out_path, set_width=True)
         width, height = imagesize.get(out_path)
         if height > width:
@@ -187,6 +187,7 @@ def _center_around_min_enclosing_circle(img: np.ndarray,
 
 @profile
 def main(images_folder: str,
+         svg2png_folder: str,
          out_images_folder: str,
          out_masks_folder: str,
          largest_svg_side_pix: int,
@@ -200,6 +201,7 @@ def main(images_folder: str,
 
     Args:
         images_folder: Input folder containing colored images to preprocess
+        svg2png_folder: Output folder containing the rasterized SVG images
         out_images_folder: Output folder containing the square preprocessed images
         largest_svg_side_pix: Size of the largest image side (in pix) when rasterizing a SVG image
         mask_computing_size_pix: Size of the images when finding contours and applying dilation
@@ -207,7 +209,8 @@ def main(images_folder: str,
         mask_margin_pix: Dilation applied around the mask, covariant with computing_size_pix
         mask_ths: Pixels the intensity of which is above this threshold are considered as white background
     """
-    rasterize_svg_images(images_folder, largest_svg_side_pix)
+    new_folder(svg2png_folder)
+    rasterize_svg_images(images_folder, svg2png_folder, largest_svg_side_pix)
 
     names = list_image_files(images_folder)
 
@@ -215,7 +218,11 @@ def main(images_folder: str,
     new_folder(out_images_folder)
 
     for name in tqdm(names, "Preprocess images"):
-        input_path = os.path.join(images_folder, name)
+        if name.endswith(".svg"):
+            name = name.replace('.svg', '.png')
+            input_path = os.path.join(svg2png_folder, name)
+        else:
+            input_path = os.path.join(images_folder, name)
         output_path = os.path.join(out_images_folder, name)
         output_mask_path = os.path.join(out_masks_folder, name)
 

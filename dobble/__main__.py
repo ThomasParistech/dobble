@@ -50,6 +50,7 @@ def main(symbols_folder: str,
 
     new_folder(output_folder)
 
+    svg2png_folder = os.path.join(output_folder, "0_svg2png")
     square_symbols_folder = os.path.join(output_folder, "1_square_symbols")
     masks_folder = os.path.join(output_folder, "2_masks")
     cards_folder = os.path.join(output_folder, "3_cards")
@@ -60,6 +61,7 @@ def main(symbols_folder: str,
     with LogScopeTime("Preprocessing"):
         preprocess.main(images_folder=symbols_folder,
                         out_images_folder=square_symbols_folder,
+                        svg2png_folder=svg2png_folder,
                         out_masks_folder=masks_folder,
                         mask_computing_size_pix=mask_computing_size_pix,
                         mask_low_res_size_pix=mask_low_res_size_pix,
