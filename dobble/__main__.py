@@ -44,7 +44,7 @@ def main(symbols_folder: str,
         card_size_cm: Diameter of the output Dobble cards to print
     """
     assert_isdir(symbols_folder)
-    assert_len(list_image_files(symbols_folder), 57,
+    assert_len(list_image_files(symbols_folder), 31 if junior_size else 57,
                msg=f"Invalid number of symbols in input folder {symbols_folder}")
 
     create_new_folder(output_folder)
