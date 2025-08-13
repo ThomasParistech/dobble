@@ -8,10 +8,11 @@ from dobble.steps import card
 from dobble.steps import pdf
 from dobble.steps import preprocess
 from dobble.steps import svg_to_png
+from dobble.utils.asserts import assert_eq
 from dobble.utils.asserts import assert_isdir
-from dobble.utils.asserts import assert_len
 from dobble.utils.file import create_new_folder
 from dobble.utils.file import list_image_files
+from dobble.utils.file import list_svg_files
 from dobble.utils.profiling import LogScopeTime
 from dobble.utils.profiling import Profiling
 
@@ -45,8 +46,11 @@ def main(symbols_folder: str,
         card_size_cm: Diameter of the output Dobble cards to print
     """
     assert_isdir(symbols_folder)
-    assert_len(list_image_files(symbols_folder), 31 if junior_size else 57,
-               msg=f"Invalid number of symbols in input folder {symbols_folder}")
+    num_rasterized = len(list_image_files(symbols_folder))
+    num_svg = len(list_svg_files(symbols_folder))
+    assert_eq(num_rasterized+num_svg, 31 if junior_size else 57,
+              msg=f"Invalid number of symbols in input folder {symbols_folder}. "
+                  f"Got {num_rasterized} rasterized and {num_svg} SVG images.")
 
     create_new_folder(output_folder)
 

@@ -1,13 +1,14 @@
 # /usr/bin/python3
 """Convert any SVG images to PNG format."""
-import glob
 import os
 
 import imagesize
 from tqdm import tqdm
 
 from dobble.utils.file import copy_file
+from dobble.utils.file import create_new_folder
 from dobble.utils.file import list_image_files
+from dobble.utils.file import list_svg_files
 from dobble.utils.logger import logger
 from dobble.utils.profiling import profile
 
@@ -37,6 +38,8 @@ def main(images_folder: str,
         out_images_folder: Output folder containing the rasterized images
         largest_svg_side_pix: Size of the largest image side (in pix) when rasterizing a SVG image
     """
+    create_new_folder(out_images_folder)
+
     # Copy the already rasterized images to the output folder
     rasterized_image_names = list_image_files(images_folder)
     for img_name in rasterized_image_names:
@@ -44,9 +47,10 @@ def main(images_folder: str,
                   os.path.join(out_images_folder, img_name))
 
     # Rasterize SVG images
-    svg_files = glob.glob(os.path.join(images_folder, '*.svg'))
-    for in_path in tqdm(svg_files, desc="SVG to PNG"):
-        out_path = os.path.join(out_images_folder, os.path.basename(in_path).replace('.svg', '.png'))
-        convert_svg_to_png(in_path, out_path, largest_svg_side_pix)
+    svg_names = list_svg_files(images_folder)
+    for svg_name in tqdm(svg_names, desc="SVG to PNG"):
+        convert_svg_to_png(os.path.join(images_folder, svg_name),
+                           os.path.join(out_images_folder, svg_name.replace('.svg', '.png')),
+                           largest_svg_side_pix)
 
-    logger.info(f"{len(svg_files)} SVG images have been rasterized to PNG")
+    logger.info(f"{len(svg_names)} SVG images have been rasterized to PNG")
