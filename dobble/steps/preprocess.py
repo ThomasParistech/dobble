@@ -1,17 +1,17 @@
 # /usr/bin/python3
-"""Make all images square and rotation-proof."""
+"""Make all rasterized images square and rotation-proof."""
 import copy
-import glob
 import math
 import os
 from typing import cast
 
 import cv2
-import imagesize
 import matplotlib.pyplot as plt
 import numpy as np
 from tqdm import tqdm
 
+from dobble.utils.asserts import assert_eq
+from dobble.utils.asserts import assert_np_shape
 from dobble.utils.file import create_new_folder
 from dobble.utils.file import list_image_files
 from dobble.utils.image_loader import ImreadType
@@ -24,23 +24,6 @@ from dobble.utils.profiling import profile
 
 DEBUG_MASK = False
 DEBUG_ENCLOSING_CIRCLE = False
-
-
-def rasterize_svg_images(images_folder: str, largest_side_pix: int) -> None:
-    """Rasterize SVG images."""
-    svg_files = glob.glob(os.path.join(images_folder, '*.svg'))
-
-    def convert_svg_to_png(in_path: str, out_path: str, set_width: bool) -> None:
-        option = "output-width" if set_width else "output-height"
-        cmd = f"cairosvg '{in_path}' -o '{out_path}' --{option} {largest_side_pix}"
-        os.system(cmd)
-
-    for in_path in tqdm(svg_files, desc="SVG to PNG"):
-        out_path = in_path.replace('.svg', '.png')
-        convert_svg_to_png(in_path, out_path, set_width=True)
-        width, height = imagesize.get(out_path)
-        if height > width:
-            convert_svg_to_png(in_path, out_path, set_width=False)
 
 
 def _get_dilation_element(margin_pix: int) -> tuple[NpIntArrayType, int, int]:
@@ -171,15 +154,14 @@ def _center_around_min_enclosing_circle(img: np.ndarray,
 def main(images_folder: str,
          out_images_folder: str,
          out_masks_folder: str,
-         largest_svg_side_pix: int,
          mask_computing_size_pix: int,
          mask_low_res_size_pix: int,
          mask_margin_pix: int,
          mask_ths: int) -> None:
-    """Make all images square and add white margin to make sure the content won't be cropped after a rotation.
+    """Make all rasterized images square and add white margin to make sure content won't be cropped after a rotation.
 
     Args:
-        images_folder: Input folder containing colored images to preprocess
+        images_folder: Input folder containing rasterized colored images to preprocess
         out_images_folder: Output folder containing the square preprocessed images
         out_masks_folder: Output folder containing the masks of the preprocessed images
         largest_svg_side_pix: Size of the largest image side (in pix) when rasterizing a SVG image
@@ -188,8 +170,6 @@ def main(images_folder: str,
         mask_margin_pix: Dilation applied around the mask, covariant with computing_size_pix
         mask_ths: Pixels the intensity of which is above this threshold are considered as white background
     """
-    rasterize_svg_images(images_folder, largest_svg_side_pix)
-
     names = list_image_files(images_folder)
 
     create_new_folder(out_masks_folder)
@@ -209,8 +189,7 @@ def main(images_folder: str,
         img, low_res_mask = _center_around_min_enclosing_circle(img, resized_mask,
                                                                 mask_low_res_size_pix)
 
-        assert img.shape[0] == img.shape[1]
-        assert low_res_mask.shape == (mask_low_res_size_pix,
-                                      mask_low_res_size_pix)
+        assert_eq(img.shape[0], img.shape[1])
+        assert_np_shape(low_res_mask, (mask_low_res_size_pix, mask_low_res_size_pix))
         write_image(output_path, img)
         write_image(output_mask_path, low_res_mask)

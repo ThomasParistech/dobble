@@ -1,9 +1,11 @@
 #!/usr/bin/python3
 """File Helpers."""
 
+import glob
 import os
 import shutil
 
+from dobble.utils.asserts import assert_eq
 from dobble.utils.logger import logger
 
 
@@ -33,3 +35,18 @@ def list_image_files(images_folder: str) -> list[str]:
     return [f.name
             for f in os.scandir(images_folder)
             if f.name.lower().endswith(image_extensions)]
+
+
+def copy_file(input_path: str, output_path: str) -> None:
+    """Copy file or folder in other folder."""
+    make_sure_folder_exists(output_path)
+    if os.path.isdir(input_path):
+        for file_path in glob.glob(os.path.join(input_path, '*')):
+            basename = os.path.basename(file_path)
+            copy_file(file_path, os.path.join(output_path, basename))
+    else:
+        _, input_ext = os.path.splitext(input_path)
+        _, output_ext = os.path.splitext(output_path)
+
+        assert_eq(input_ext, output_ext, msg="Source and destination files must have the same extension")
+        shutil.copy(input_path, output_path)
