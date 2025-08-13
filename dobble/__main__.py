@@ -7,6 +7,7 @@ import fire
 from dobble.steps import card
 from dobble.steps import pdf
 from dobble.steps import preprocess
+from dobble.steps import svg_to_png
 from dobble.utils.asserts import assert_isdir
 from dobble.utils.asserts import assert_len
 from dobble.utils.file import create_new_folder
@@ -27,10 +28,10 @@ def main(symbols_folder: str,
          junior_size: bool = False,
          card_n_iter: int = 1000,
          card_size_cm: float = 13.) -> None:
-    """Generate Dobble PDF from 57 symbol images.
+    """Generate Dobble PDF from 57 symbol images (or 31 in junior mode).
 
     Args:
-        symbols_folder: Input Folder containing the 57 symbol images (on a white background)
+        symbols_folder: Input Folder containing the 57 (or 31 in junior mode) symbol images (on a white background)
         output_folder: Output result folder
         largest_svg_side_pix: Size of the largest image side (in pix) when rasterizing a SVG image
         mask_computing_size_pix: Size of the images when finding mask contours and applying dilation
@@ -44,11 +45,12 @@ def main(symbols_folder: str,
         card_size_cm: Diameter of the output Dobble cards to print
     """
     assert_isdir(symbols_folder)
-    assert_len(list_image_files(symbols_folder), 57,
+    assert_len(list_image_files(symbols_folder), 31 if junior_size else 57,
                msg=f"Invalid number of symbols in input folder {symbols_folder}")
 
     create_new_folder(output_folder)
 
+    rasterized_folder = os.path.join(output_folder, "0_svg_to_png")
     square_symbols_folder = os.path.join(output_folder, "1_square_symbols")
     masks_folder = os.path.join(output_folder, "2_masks")
     cards_folder = os.path.join(output_folder, "3_cards")
@@ -56,15 +58,19 @@ def main(symbols_folder: str,
 
     n_symbols_per_card = 6 if junior_size else 8
 
+    with LogScopeTime("Svg to PNG"):
+        svg_to_png.main(images_folder=symbols_folder,
+                        out_images_folder=rasterized_folder,
+                        largest_svg_side_pix=largest_svg_side_pix)
+
     with LogScopeTime("Preprocessing"):
-        preprocess.main(images_folder=symbols_folder,
+        preprocess.main(images_folder=rasterized_folder,
                         out_images_folder=square_symbols_folder,
                         out_masks_folder=masks_folder,
                         mask_computing_size_pix=mask_computing_size_pix,
                         mask_low_res_size_pix=mask_low_res_size_pix,
                         mask_margin_pix=mask_margin_pix,
-                        mask_ths=mask_ths,
-                        largest_svg_side_pix=largest_svg_side_pix)
+                        mask_ths=mask_ths)
 
     with LogScopeTime("Cards"):
         card.main(masks_folder=masks_folder,
