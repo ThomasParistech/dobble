@@ -37,6 +37,13 @@ def list_image_files(images_folder: str) -> list[str]:
             if f.name.lower().endswith(image_extensions)]
 
 
+def list_svg_files(images_folder: str) -> list[str]:
+    """List SVG files."""
+    return [f.name
+            for f in os.scandir(images_folder)
+            if f.name.lower().endswith('.svg')]
+
+
 def copy_file(input_path: str, output_path: str) -> None:
     """Copy file or folder in other folder."""
     make_sure_folder_exists(output_path)
