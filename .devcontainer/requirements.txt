@@ -9,3 +9,4 @@ mypy==1.17.1
 mpire==2.10.2
 ruff==0.12.8
 tqdm==4.67.1
+pytest==8.4.1

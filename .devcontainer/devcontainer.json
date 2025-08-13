@@ -12,7 +12,8 @@
                 "ms-python.autopep8",
                 "ms-python.mypy-type-checker",
                 "GitHub.vscode-github-actions",
-                "GitHub.copilot"
+                "GitHub.copilot",
+                "yzhang.markdown-all-in-one"
             ]
         }
     },

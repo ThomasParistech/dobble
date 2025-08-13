@@ -1,12 +1,10 @@
 # /usr/bin/python3
-"""Make all images square and rotation-proof"""
-
-
+"""Make all images square and rotation-proof."""
 import copy
 import glob
 import math
 import os
-from typing import Tuple
+from typing import cast
 
 import cv2
 import imagesize
@@ -14,11 +12,15 @@ import matplotlib.pyplot as plt
 import numpy as np
 from tqdm import tqdm
 
-from dobble.profiling import profile
-from dobble.utils import get_overlapping_image_ranges
-from dobble.utils import get_overlapping_ranges
-from dobble.utils import list_image_files
-from dobble.utils import new_folder
+from dobble.utils.file import create_new_folder
+from dobble.utils.file import list_image_files
+from dobble.utils.image_loader import ImreadType
+from dobble.utils.image_loader import load_image
+from dobble.utils.image_loader import write_image
+from dobble.utils.np_types import NpIntArrayType
+from dobble.utils.overlapping_ranges import get_overlapping_image_ranges
+from dobble.utils.overlapping_ranges import get_overlapping_ranges
+from dobble.utils.profiling import profile
 
 DEBUG_MASK = False
 DEBUG_ENCLOSING_CIRCLE = False
@@ -28,7 +30,7 @@ def rasterize_svg_images(images_folder: str, largest_side_pix: int) -> None:
     """Rasterize SVG images."""
     svg_files = glob.glob(os.path.join(images_folder, '*.svg'))
 
-    def convert_svg_to_png(in_path: str, out_path: str, set_width: bool):
+    def convert_svg_to_png(in_path: str, out_path: str, set_width: bool) -> None:
         option = "output-width" if set_width else "output-height"
         cmd = f"cairosvg '{in_path}' -o '{out_path}' --{option} {largest_side_pix}"
         os.system(cmd)
@@ -41,43 +43,23 @@ def rasterize_svg_images(images_folder: str, largest_side_pix: int) -> None:
             convert_svg_to_png(in_path, out_path, set_width=False)
 
 
-def _set_white_background(img: np.ndarray) -> np.ndarray:
-    """Handle alpha channel and set white background."""
-    if len(img.shape) == 2:
-        return cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
-
-    if img.shape[-1] == 3:
-        return img
-
-    assert img.shape[-1] == 4
-
-    alpha = img[..., -1][..., None] / 255.0
-    img = img[..., :3]
-
-    img = (1.0 - alpha) * 255.0 + alpha*img
-    img = img.astype(np.uint8)
-
-    return img
-
-
-def _get_dilation_element(margin_pix: int) -> Tuple[np.ndarray, int, int]:
+def _get_dilation_element(margin_pix: int) -> tuple[NpIntArrayType, int, int]:
     ksize = 3
-    element = cv2.getStructuringElement(cv2.MORPH_RECT, (ksize, ksize))
+    element = cast(NpIntArrayType, cv2.getStructuringElement(cv2.MORPH_RECT, (ksize, ksize)))
     iterations = math.ceil(margin_pix/(ksize-1.))
     return element, iterations, iterations*(ksize - 1)
 
 
-def _get_contour_mask(img: np.ndarray, computing_size_pix: int, margin_pix: int, ths: int) -> np.ndarray:
+def _get_contour_mask(img: np.ndarray, computing_size_pix: int, margin_pix: int, ths: int) -> NpIntArrayType:
     assert img.shape[0] == img.shape[1]
 
     if img.shape[0] != computing_size_pix:
         img = cv2.resize(img, (computing_size_pix, computing_size_pix))
 
-    mask = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY) < ths
-    mask = 255*mask.astype(np.uint8)
+    mask = 255*(cv2.cvtColor(img, cv2.COLOR_BGR2GRAY) < ths).astype(np.uint8)
 
     element, iterations, _ = _get_dilation_element(margin_pix)
-    mask = cv2.dilate(mask, element, iterations=iterations)
+    mask = np.asarray(cv2.dilate(mask, element, iterations=iterations))
 
     # Fill interior holes
     contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL,
@@ -96,7 +78,7 @@ def _get_contour_mask(img: np.ndarray, computing_size_pix: int, margin_pix: int,
     return mask
 
 
-def _to_square(img: np.ndarray, margin_pix: int, mask_computing_size_pix: int) -> np.ndarray:
+def _to_square(img: NpIntArrayType, margin_pix: int, mask_computing_size_pix: int) -> NpIntArrayType:
     h, w = img.shape[:2]
 
     s = max(h, w)
@@ -116,7 +98,7 @@ def _to_square(img: np.ndarray, margin_pix: int, mask_computing_size_pix: int) -
 
 def _center_around_min_enclosing_circle(img: np.ndarray,
                                         mask: np.ndarray,
-                                        mask_low_res_size_pix: int) -> Tuple[np.ndarray, np.ndarray]:
+                                        mask_low_res_size_pix: int) -> tuple[np.ndarray, np.ndarray]:
     # Enlarge the image to contain the circumscribed circle of the original square image
     assert img.shape[0] == img.shape[1]
     assert mask.shape[0] == mask.shape[1]
@@ -158,7 +140,7 @@ def _center_around_min_enclosing_circle(img: np.ndarray,
                      new_x_begin:new_x_end] = low_res_mask[img_y_begin:img_y_end,
                                                            img_x_begin:img_x_end]
 
-    new_low_res_mask = cv2.resize(new_low_res_mask, (mask_low_res_size_pix, mask_low_res_size_pix),
+    new_low_res_mask = cv2.resize(new_low_res_mask, (mask_low_res_size_pix, mask_low_res_size_pix),  # type: ignore
                                   interpolation=cv2.INTER_NEAREST)
 
     if DEBUG_ENCLOSING_CIRCLE:
@@ -190,17 +172,16 @@ def main(images_folder: str,
          out_images_folder: str,
          out_masks_folder: str,
          largest_svg_side_pix: int,
-         mask_computing_size_pix: str,
-         mask_low_res_size_pix: str,
-         mask_margin_pix: str,
-         mask_ths: int):
-    """
-    Make all images square and add white margin to make sure
-    the content won't be cropped after a rotation
+         mask_computing_size_pix: int,
+         mask_low_res_size_pix: int,
+         mask_margin_pix: int,
+         mask_ths: int) -> None:
+    """Make all images square and add white margin to make sure the content won't be cropped after a rotation.
 
     Args:
         images_folder: Input folder containing colored images to preprocess
         out_images_folder: Output folder containing the square preprocessed images
+        out_masks_folder: Output folder containing the masks of the preprocessed images
         largest_svg_side_pix: Size of the largest image side (in pix) when rasterizing a SVG image
         mask_computing_size_pix: Size of the images when finding contours and applying dilation
         mask_low_res_size_pix: Output size of the low resolution dumped masks
@@ -211,16 +192,15 @@ def main(images_folder: str,
 
     names = list_image_files(images_folder)
 
-    new_folder(out_masks_folder)
-    new_folder(out_images_folder)
+    create_new_folder(out_masks_folder)
+    create_new_folder(out_images_folder)
 
     for name in tqdm(names, "Preprocess images"):
         input_path = os.path.join(images_folder, name)
         output_path = os.path.join(out_images_folder, name)
         output_mask_path = os.path.join(out_masks_folder, name)
 
-        img = cv2.imread(input_path, cv2.IMREAD_UNCHANGED)
-        img = _set_white_background(img)
+        img = load_image(input_path, ImreadType.BGR_WHITE_BACKGROUND)
         img = _to_square(img, mask_margin_pix, mask_computing_size_pix)
 
         resized_mask = _get_contour_mask(img, mask_computing_size_pix,
@@ -232,5 +212,5 @@ def main(images_folder: str,
         assert img.shape[0] == img.shape[1]
         assert low_res_mask.shape == (mask_low_res_size_pix,
                                       mask_low_res_size_pix)
-        cv2.imwrite(output_path, img)
-        cv2.imwrite(output_mask_path, low_res_mask)
+        write_image(output_path, img)
+        write_image(output_mask_path, low_res_mask)

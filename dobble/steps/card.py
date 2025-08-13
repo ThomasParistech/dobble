@@ -1,35 +1,36 @@
 # /usr/bin/python3
-"""Generate 57 cards with randomly drawn symbols"""
-
+"""Generate 57 cards with randomly drawn symbols."""
 import copy
 import math
 import numbers
 import os
 from dataclasses import dataclass
-from functools import lru_cache
-from typing import List
-from typing import Optional
-from typing import Tuple
-from typing import Union
+from functools import cache
 
 import cv2
 import numpy as np
-from tqdm import tqdm
 
-from dobble.optim import get_cards, get_n_cards
-from dobble.profiling import profile
-from dobble.utils import assert_len
-from dobble.utils import get_overlapping_image_ranges
-from dobble.utils import list_image_files
-from dobble.utils import multiprocess
-from dobble.utils import new_folder
+from dobble.steps.optim import get_cards
+from dobble.steps.optim import get_n_cards
+from dobble.utils.asserts import assert_eq
+from dobble.utils.asserts import assert_len
+from dobble.utils.asserts import assert_np_dim
+from dobble.utils.asserts import assert_np_shape
+from dobble.utils.file import create_new_folder
+from dobble.utils.file import list_image_files
+from dobble.utils.image_loader import ImreadType
+from dobble.utils.image_loader import load_image
+from dobble.utils.image_loader import write_image
+from dobble.utils.multiprocess import multiprocess
+from dobble.utils.overlapping_ranges import get_overlapping_image_ranges
+from dobble.utils.profiling import profile
 
 DEBUG = False
 DEBUG_FINAL = False
 
 RNG = np.random.default_rng(42)
 
-SCALE_TARGETS_LIST: List[List[float]] = [
+SCALE_TARGETS_LIST: list[list[float]] = [
     [0.8, 0.8, 1.0, 1.5, 2.0, 3.0, 4.0, 5.0],
     [0.8, 0.8, 0.9, 0.9, 5.0, 5.0, 5.0, 5.0],
     [0.8, 0.8, 0.8, 2, 2., 5., 5., 5.]
@@ -48,7 +49,8 @@ XY_INIT_NORMED = [(0.5 + x * SQUARE_SIZE,
                   for y in [-1.5, -0.5, 0.5]]
 
 
-def init_translation(radii: List[int], list_n_angles: List[int]) -> List[Tuple[int, int]]:
+def init_translation(radii: list[int], list_n_angles: list[int]) -> list[tuple[int, int]]:
+    """Init Translation."""
     return [(int(np.cos(angle)*r), int(np.sin(angle)*r))
             for r, n_angles in zip(radii, list_n_angles)
             for angle in np.linspace(0, 2*np.pi, endpoint=False, num=n_angles)]
@@ -59,13 +61,14 @@ TRANSLATIONS = init_translation(radii=[40, 20, 10], list_n_angles=[7, 5, 4])
 
 
 @profile
-def rotate(image: np.ndarray, angle: int, background: Union[Tuple[int, int, int], int]) -> np.ndarray:
+def rotate(image: np.ndarray, angle: int, background: tuple[int, int, int] | int) -> np.ndarray:
+    """Rotate."""
     assert isinstance(angle, numbers.Integral), angle
     (h, w) = image.shape[:2]
     center = (w // 2, h // 2)
 
-    M = cv2.getRotationMatrix2D(center, angle, 1)
-    rotated = cv2.warpAffine(image, M, (w, h), borderValue=background)
+    mat = cv2.getRotationMatrix2D(center, angle, 1)
+    rotated = cv2.warpAffine(image, mat, (w, h), borderValue=background)
 
     return rotated
 
@@ -80,7 +83,7 @@ class CachedTransformedMask:
         self.last_scale: float = 1.0
         self.last_mask = copy.deepcopy(ref_mask)
 
-        @lru_cache(maxsize=None)
+        @cache
         def get_rotated_image(angle: int) -> np.ndarray:
             """Cache up to 360 rotated images."""
             return rotate(self.ref_mask, angle, 0)
@@ -103,6 +106,7 @@ class CachedTransformedMask:
 
 @dataclass
 class Symbol:
+    """Symbol."""
     ref_mask: np.ndarray
     scale_target: float
 
@@ -112,11 +116,11 @@ class Symbol:
     y_top: int
     x_left: int
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         self.cached_mask = CachedTransformedMask(self.ref_mask)
 
     @profile
-    def try_scale(self, full_mask: np.ndarray) -> Optional[float]:
+    def try_scale(self, full_mask: np.ndarray) -> float | None:
         """Apply bisection to find largest possible scale."""
         if self.scale_target < self.scale:
             return self.scale_target  # No need to check to reduce the size
@@ -143,8 +147,8 @@ class Symbol:
         return largest_possible_scale if np.isfinite(largest_possible_scale) else None
 
     def try_params(self, full_mask: np.ndarray, *, scale: float, x_left: int, y_top: int, angle: int) -> bool:
-        """Generate the new mask and return True if it doesn't overlap the neighboring symbols masks"""
-        assert len(full_mask.shape) == 2
+        """Generate the new mask and return True if it doesn't overlap the neighboring symbols masks."""
+        assert_np_dim(full_mask, 2)
         full_size = full_mask.shape[0]
 
         new_size = int(scale*self.ref_mask.shape[0])
@@ -156,7 +160,7 @@ class Symbol:
             return False
 
         resized = self.cached_mask.get_image(angle, scale)
-        assert resized.shape == (new_size, new_size)
+        assert_np_shape(resized, (new_size, new_size))
 
         cropped_mask, cropped_img = get_overlapping_image_ranges(full_mask, resized,
                                                                  x_left=x_left, y_top=y_top)
@@ -169,9 +173,9 @@ class Symbol:
         return n_inter == 0
 
     @profile
-    def draw_mask(self, mask: np.ndarray):
-        """Superimpose the mask symbol on the input image"""
-        assert len(mask.shape) == 2
+    def draw_mask(self, mask: np.ndarray) -> None:
+        """Superimpose the mask symbol on the input image."""
+        assert_np_dim(mask, 2)
 
         resized = self.cached_mask.get_image(self.angle, self.scale)
 
@@ -182,7 +186,8 @@ class Symbol:
 
 
 class Card:
-    """
+    """Card.
+
     Start with N symbols of the same size in the middle of the image card
     and let them evolve overtime to randomly translate, rotate and shrink/grow,
     under the constraint of non-overlapping
@@ -191,16 +196,16 @@ class Card:
     enough to estimate the overlap.
     """
 
-    def __init__(self, n:int, masks: List[np.ndarray],
-                 scale_targets: List[float]) -> None:
-        """Init from a list of 8 low-resolution symbol masks"""
-        assert len(masks) == n
+    def __init__(self, n: int, masks: list[np.ndarray],
+                 scale_targets: list[float]) -> None:
+        """Init from a list of 8 low-resolution symbol masks."""
+        assert_len(masks, n)
 
         self.n = n
         self.size_pix = math.ceil(masks[0].shape[0] / SQUARE_SIZE)
         self.center = (self.size_pix // 2, self.size_pix // 2)
 
-        self.symbols: List[Symbol] = []
+        self.symbols: list[Symbol] = []
         list_xy = np.array(XY_INIT_NORMED)
         RNG.shuffle(list_xy)
         list_xy = list_xy[:n]
@@ -211,17 +216,16 @@ class Card:
         occupancy = total_target_area / disk_area
 
         for (x, y), mask, scale_target in zip(list_xy, masks, scale_targets):
-            self.symbols.append(
-                Symbol(ref_mask=mask,
-                       scale=1.0,
-                       scale_target=scale_target * DISK_OCCUPANCY_TARGET / occupancy,
-                       angle=RNG.integers(0, 360),
-                       y_top=int(y*self.size_pix),
-                       x_left=int(x*self.size_pix)))
+            self.symbols.append(Symbol(ref_mask=mask,
+                                       scale=1.0,
+                                       scale_target=scale_target * DISK_OCCUPANCY_TARGET / occupancy,
+                                       angle=int(RNG.integers(0, 360)),
+                                       y_top=int(y*self.size_pix),
+                                       x_left=int(x*self.size_pix)))
 
     @profile
-    def next(self):
-        """Let one symbol randomly evolve"""
+    def next(self) -> None:
+        """Let one symbol randomly evolve."""
         full_mask = 255*np.ones((self.size_pix, self.size_pix), dtype=np.uint8)
         cv2.circle(full_mask, self.center, self.center[0], 0, -1)
 
@@ -234,8 +238,7 @@ class Card:
 
         mode = RNG.random()
         if mode < 0.2:  # ANGLE
-            angles = RNG.choice(np.arange(360, step=2),
-                                size=N_ANGLES_TO_TEST, replace=False)
+            angles = RNG.choice(np.arange(0, 360, 2), size=N_ANGLES_TO_TEST, replace=False)
             for d_angle in angles:
                 if s.try_params(full_mask, scale=s.scale, x_left=s.x_left,
                                 y_top=s.y_top, angle=s.angle+d_angle):
@@ -258,8 +261,8 @@ class Card:
         if DEBUG:
             self.imshow(wait_key=1)
 
-    def imshow(self, wait_key: int = 0):
-        """Display the current binary mask"""
+    def imshow(self, wait_key: int = 0) -> None:
+        """Display the current binary mask."""
         full_mask = 255*np.ones((self.size_pix, self.size_pix), dtype=np.uint8)
         cv2.circle(full_mask, self.center, self.center[0], 0, -1)
         for symbol in self.symbols:
@@ -268,18 +271,18 @@ class Card:
         cv2.waitKey(wait_key)
 
 
-def allocate_scale_targets(cards: List[List[int]], n) -> List[List[float]]:
+def allocate_scale_targets(cards: list[list[int]], n: int) -> list[list[float]]:
     """Allocate scale targets while ensuring that each symbol appears at least once with a large scale."""
     c = get_n_cards(n)
 
-    scales_per_symbol = [[] for _ in range(c)]
+    scales_per_symbol: list[list[float]] = [[] for _ in range(c)]
 
-    def compute_score(scales: List[float]) -> float:
+    def compute_score(scales: list[float]) -> float:
         if len(scales) == 0:
             return -np.inf
         return np.max(scales) * np.mean(scales)
 
-    all_scale_targets: List[List[float]] = []
+    all_scale_targets: list[list[float]] = []
     for symbols in cards:
 
         idx = RNG.integers(0, len(SCALE_TARGETS_LIST))
@@ -295,6 +298,7 @@ def allocate_scale_targets(cards: List[List[int]], n) -> List[List[float]]:
 
     return all_scale_targets
 
+
 def generate_card(out_card_path: str,
                   masks_folder: str,
                   symbols_folder: str,
@@ -302,19 +306,18 @@ def generate_card(out_card_path: str,
                   circle_width_pix: int,
                   n_symbols: int,
                   n_iter: int,
-                  names: List[str],
-                  symbols: List[int],
-                  scale_targets: List[float]):
+                  names: list[str],
+                  symbols: list[int],
+                  scale_targets: list[float]) -> None:
     """Draw symbols on a card according to the scale targets and save it as an image."""
-    masks = [cv2.imread(os.path.join(masks_folder, names[symbol_idx]),
-                        cv2.IMREAD_GRAYSCALE)
+    masks = [load_image(os.path.join(masks_folder, names[symbol_idx]), ImreadType.GRAY)
              for symbol_idx in symbols]
 
     card = Card(n_symbols, masks, scale_targets)
     for _ in range(n_iter):
         card.next()
 
-    symbols_images = [cv2.imread(os.path.join(symbols_folder, names[symbol_idx]))
+    symbols_images = [load_image(os.path.join(symbols_folder, names[symbol_idx]))
                       for symbol_idx in symbols]
 
     card_img = 255*np.ones((card_size_pix, card_size_pix, 3), np.uint8)
@@ -338,14 +341,14 @@ def generate_card(out_card_path: str,
                                                                                 x_left=x_left, y_top=y_top)
         _, cropped_resized_mask = get_overlapping_image_ranges(card_img, resized_mask > 0,
                                                                x_left=x_left, y_top=y_top)
-        assert cropped_card_img.shape[:2] == cropped_resized_mask.shape
+        assert_eq(cropped_card_img.shape[:2], cropped_resized_mask.shape)
 
         cropped_card_img[cropped_resized_mask] = cropped_resized_symbol[cropped_resized_mask]
 
     if circle_width_pix is not None:
         cv2.circle(card_img, (card_size_pix // 2, card_size_pix // 2),
                    card_size_pix // 2, (0, 0, 0), circle_width_pix)
-    cv2.imwrite(out_card_path, card_img)
+    write_image(out_card_path, card_img)
 
     if DEBUG_FINAL:
         cv2.imshow("Card Image", card_img)
@@ -357,9 +360,9 @@ def main(masks_folder: str,
          symbols_folder: str,
          out_cards_folder: str,
          card_size_pix: int,
-         circle_width_pix: Optional[int],
+         circle_width_pix: int | None,
          n_symbols: int,
-         n_iter: int):
+         n_iter: int) -> None:
     """Generate 57 Dobble cards from symbols masks and images.
 
     Args:
@@ -368,6 +371,7 @@ def main(masks_folder: str,
         out_cards_folder: Output folder containing the high-resolution random drawn cards
         card_size_pix: Size of the output high-resolution cards
         circle_width_pix: Width of the circle around each card. Use None to remove circle. Covariant with card_size_pix
+        n_symbols: Number of symbols
         n_iter: Number of evolution steps for each card
     """
     c = get_n_cards(n_symbols)
@@ -377,7 +381,7 @@ def main(masks_folder: str,
     cards = get_cards(n_symbols=n_symbols)
     assert_len(cards, c)
 
-    new_folder(out_cards_folder)
+    create_new_folder(out_cards_folder)
 
     scale_targets_per_card = allocate_scale_targets(cards, n=n_symbols)
     assert_len(scale_targets_per_card, c)
