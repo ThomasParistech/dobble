@@ -1,18 +1,18 @@
 # /usr/bin/python3
-"""Dobble"""
+"""Dobble."""
 import os
-from typing import Optional
 
 import fire
 
-from dobble import card
-from dobble import pdf
-from dobble import preprocess
-from dobble.profiling import export_profiling_events
-from dobble.profiling import LogScopeTime
-from dobble.utils import assert_len
-from dobble.utils import list_image_files
-from dobble.utils import new_folder
+from dobble.steps import card
+from dobble.steps import pdf
+from dobble.steps import preprocess
+from dobble.utils.asserts import assert_isdir
+from dobble.utils.asserts import assert_len
+from dobble.utils.file import create_new_folder
+from dobble.utils.file import list_image_files
+from dobble.utils.profiling import LogScopeTime
+from dobble.utils.profiling import Profiling
 
 
 def main(symbols_folder: str,
@@ -23,10 +23,10 @@ def main(symbols_folder: str,
          mask_margin_pix: int = 20,
          mask_ths: int = 250,
          card_size_pix: int = 3000,
-         circle_width_pix: Optional[int] = 10,
+         circle_width_pix: int | None = 10,
          junior_size: bool = False,
          card_n_iter: int = 1000,
-         card_size_cm: float = 13.):
+         card_size_cm: float = 13.) -> None:
     """Generate Dobble PDF from 57 symbol images.
 
     Args:
@@ -39,16 +39,15 @@ def main(symbols_folder: str,
         mask_ths: Pixels the intensity of which is above this threshold are considered as white background
         card_size_pix: Size of the output high-resolution cards
         circle_width_pix: Width of the circle around each card. Use None to remove circle. Covariant with card_size_pix
-        junior_size: Use the junior version of the game (6 symbols per card) instead of the standard version (8 symbols per card)
+        junior_size: Use the junior version (6 symbols per card) instead of the standard version (8 symbols per card)
         card_n_iter: Number of evolution steps for each card
         card_size_cm: Diameter of the output Dobble cards to print
     """
-    assert os.path.isdir(symbols_folder), \
-        f"Input symbols folder {symbols_folder} does not exist"
+    assert_isdir(symbols_folder)
     assert_len(list_image_files(symbols_folder), 57,
                msg=f"Invalid number of symbols in input folder {symbols_folder}")
 
-    new_folder(output_folder)
+    create_new_folder(output_folder)
 
     square_symbols_folder = os.path.join(output_folder, "1_square_symbols")
     masks_folder = os.path.join(output_folder, "2_masks")
@@ -80,9 +79,9 @@ def main(symbols_folder: str,
         pdf.main(cards_folder=cards_folder,
                  out_print_folder=print_folder,
                  card_size_cm=card_size_cm,
-                 n_symbols_per_card = n_symbols_per_card)
+                 n_symbols_per_card=n_symbols_per_card)
 
-    export_profiling_events("data/profiling.json")
+    Profiling.export_events()
 
 
 if __name__ == "__main__":

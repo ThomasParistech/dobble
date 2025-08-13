@@ -1,0 +1,39 @@
+{
+    "name": "dobble",
+    "context": "..",
+	"dockerFile": "Dockerfile",
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "ms-python.python",
+                "ms-azuretools.vscode-docker",
+                "eamodio.gitlens",
+                "charliermarsh.ruff",
+                "ms-python.autopep8",
+                "ms-python.mypy-type-checker",
+                "GitHub.vscode-github-actions",
+                "GitHub.copilot",
+                "yzhang.markdown-all-in-one"
+            ]
+        }
+    },
+    "capAdd": [
+        "SYS_PTRACE"
+    ],
+    "containerEnv": {
+        "DISPLAY": "${localEnv:DISPLAY}"
+    },
+    "mounts": [
+        {
+            "source": "/tmp/.X11-unix/",
+            "target": "/tmp/.X11-unix/",
+            "type": "bind"
+        },
+        {
+            "source": "/root/.cache/pip",
+            "target": "/root/.cache/pip",
+            "type": "bind"
+        }
+    ],
+    "remoteUser": "dock"
+}

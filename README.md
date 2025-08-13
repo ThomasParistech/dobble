@@ -33,12 +33,12 @@ to execute the 3 following steps:
 
 To try on toy data, run
 ```
-python3 -m dobble --symbols_folder images/symbols_examples/ --output_folder result
+python3 -m dobble --symbols_folder assets/symbols_examples/ --output_folder data/result
 ```
 
 To run the junior version, add the `junior_size` flag:
 ```
-python3 -m dobble --junior_size --symbols_folder images/symbols_examples_junior/ --output_folder result
+python3 -m dobble --junior_size --symbols_folder assets/symbols_examples_junior/ --output_folder data/result
 ```
 
 
@@ -46,7 +46,7 @@ python3 -m dobble --junior_size --symbols_folder images/symbols_examples_junior/
 
 
 # Example
-![](./images/dobble_evolution.gif)
+![](./doc/dobble_evolution.gif)
 
 
 
