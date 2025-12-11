@@ -60,3 +60,16 @@ def test_junior_main_with_svg() -> None:
 
     # THEN
     assert_isfile(os.path.join(output_folder, '4_print', "cards.pdf"))
+
+
+def test_hexagon_main() -> None:
+    """Test hexagon main."""
+    # GIVEN
+    symbols_folder = os.path.join(ASSETS_DIR, 'symbols_examples')
+
+    # WHEN
+    output_folder = os.path.join(TEST_DIR, 'result_hexagon')
+    main(symbols_folder=symbols_folder, output_folder=output_folder, hexagon=True)
+
+    # THEN
+    assert_isfile(os.path.join(output_folder, '4_print', "cards.pdf"))
