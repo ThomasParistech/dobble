@@ -41,6 +41,10 @@ To run the junior version, add the `junior_size` flag:
 python3 -m dobble --junior_size --symbols_folder assets/symbols_examples_junior/ --output_folder data/result
 ```
 
+To use cards with hexagonal shapes (easier to cut), add the `hexagon` flag:
+```
+python3 -m dobble --hexagon --symbols_folder assets/symbols_examples/ --output_folder data/result
+```
 
 *Tip: you can use a "circle punch" to cut the printed cards.*
 

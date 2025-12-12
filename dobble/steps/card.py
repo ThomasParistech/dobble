@@ -16,6 +16,8 @@ from dobble.utils.asserts import assert_eq
 from dobble.utils.asserts import assert_len
 from dobble.utils.asserts import assert_np_dim
 from dobble.utils.asserts import assert_np_shape
+from dobble.utils.draw_card_shapes import draw_shape_border
+from dobble.utils.draw_card_shapes import draw_shape_mask
 from dobble.utils.file import create_new_folder
 from dobble.utils.file import list_image_files
 from dobble.utils.image_loader import ImreadType
@@ -197,11 +199,13 @@ class Card:
     """
 
     def __init__(self, n: int, masks: list[np.ndarray],
-                 scale_targets: list[float]) -> None:
+                 scale_targets: list[float],
+                 hexagon: bool = False) -> None:
         """Init from a list of 8 low-resolution symbol masks."""
         assert_len(masks, n)
 
         self.n = n
+        self.hexagon = hexagon
         self.size_pix = math.ceil(masks[0].shape[0] / SQUARE_SIZE)
         self.center = (self.size_pix // 2, self.size_pix // 2)
 
@@ -227,7 +231,7 @@ class Card:
     def next(self) -> None:
         """Let one symbol randomly evolve."""
         full_mask = 255*np.ones((self.size_pix, self.size_pix), dtype=np.uint8)
-        cv2.circle(full_mask, self.center, self.center[0], 0, -1)
+        draw_shape_mask(full_mask, self.center, self.hexagon)
 
         selected_idx = RNG.integers(0, self.n)
         for k, symbol in enumerate(self.symbols):
@@ -264,7 +268,7 @@ class Card:
     def imshow(self, wait_key: int = 0) -> None:
         """Display the current binary mask."""
         full_mask = 255*np.ones((self.size_pix, self.size_pix), dtype=np.uint8)
-        cv2.circle(full_mask, self.center, self.center[0], 0, -1)
+        draw_shape_mask(full_mask, self.center, self.hexagon)
         for symbol in self.symbols:
             symbol.draw_mask(full_mask)
         cv2.imshow("Card Mask", full_mask)
@@ -308,12 +312,13 @@ def generate_card(out_card_path: str,
                   n_iter: int,
                   names: list[str],
                   symbols: list[int],
-                  scale_targets: list[float]) -> None:
+                  scale_targets: list[float],
+                  hexagon: bool = False) -> None:
     """Draw symbols on a card according to the scale targets and save it as an image."""
     masks = [load_image(os.path.join(masks_folder, names[symbol_idx]), ImreadType.GRAY)
              for symbol_idx in symbols]
 
-    card = Card(n_symbols, masks, scale_targets)
+    card = Card(n_symbols, masks, scale_targets, hexagon=hexagon)
     for _ in range(n_iter):
         card.next()
 
@@ -346,8 +351,7 @@ def generate_card(out_card_path: str,
         cropped_card_img[cropped_resized_mask] = cropped_resized_symbol[cropped_resized_mask]
 
     if circle_width_pix is not None:
-        cv2.circle(card_img, (card_size_pix // 2, card_size_pix // 2),
-                   card_size_pix // 2, (0, 0, 0), circle_width_pix)
+        draw_shape_border(card_img, card_size_pix, circle_width_pix, hexagon)
     write_image(out_card_path, card_img)
 
     if DEBUG_FINAL:
@@ -362,7 +366,8 @@ def main(masks_folder: str,
          card_size_pix: int,
          circle_width_pix: int | None,
          n_symbols: int,
-         n_iter: int) -> None:
+         n_iter: int,
+         hexagon: bool = False) -> None:
     """Generate 57 Dobble cards from symbols masks and images.
 
     Args:
@@ -373,6 +378,7 @@ def main(masks_folder: str,
         circle_width_pix: Width of the circle around each card. Use None to remove circle. Covariant with card_size_pix
         n_symbols: Number of symbols
         n_iter: Number of evolution steps for each card
+        hexagon: Use hexagonal card shape instead of circular (default: False)
     """
     c = get_n_cards(n_symbols)
     names = list_image_files(masks_folder)
@@ -395,7 +401,8 @@ def main(masks_folder: str,
                     "n_symbols": n_symbols,
                     "names": names,
                     "symbols": symbols,
-                    "scale_targets": scale_targets}
+                    "scale_targets": scale_targets,
+                    "hexagon": hexagon}
                    for card_idx, (symbols, scale_targets) in enumerate(zip(cards, scale_targets_per_card))]
 
     multiprocess(generate_card, list_kwargs, tqdm_title="Generate Cards",

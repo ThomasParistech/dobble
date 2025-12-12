@@ -28,7 +28,8 @@ def main(symbols_folder: str,
          circle_width_pix: int | None = 10,
          junior_size: bool = False,
          card_n_iter: int = 1000,
-         card_size_cm: float = 13.) -> None:
+         card_size_cm: float = 13.,
+         hexagon: bool = False) -> None:
     """Generate Dobble PDF from 57 symbol images (or 31 in junior mode).
 
     Args:
@@ -44,6 +45,7 @@ def main(symbols_folder: str,
         junior_size: Use the junior version (6 symbols per card) instead of the standard version (8 symbols per card)
         card_n_iter: Number of evolution steps for each card
         card_size_cm: Diameter of the output Dobble cards to print
+        hexagon: Use hexagonal shape instead of circular shape for cards
     """
     assert_isdir(symbols_folder)
     num_rasterized = len(list_image_files(symbols_folder))
@@ -83,7 +85,8 @@ def main(symbols_folder: str,
                   card_size_pix=card_size_pix,
                   circle_width_pix=circle_width_pix,
                   n_symbols=n_symbols_per_card,
-                  n_iter=card_n_iter)
+                  n_iter=card_n_iter,
+                  hexagon=hexagon)
 
     with LogScopeTime("PDF"):
         pdf.main(cards_folder=cards_folder,
