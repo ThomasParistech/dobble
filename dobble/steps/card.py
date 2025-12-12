@@ -16,7 +16,8 @@ from dobble.utils.asserts import assert_eq
 from dobble.utils.asserts import assert_len
 from dobble.utils.asserts import assert_np_dim
 from dobble.utils.asserts import assert_np_shape
-from dobble.utils.draw_card_shapes import draw_shape_border, draw_shape_mask
+from dobble.utils.draw_card_shapes import draw_shape_border
+from dobble.utils.draw_card_shapes import draw_shape_mask
 from dobble.utils.file import create_new_folder
 from dobble.utils.file import list_image_files
 from dobble.utils.image_loader import ImreadType
