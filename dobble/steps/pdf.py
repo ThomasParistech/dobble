@@ -2,10 +2,10 @@
 """Merge Dobble cards into a scaled PDF ready to print."""
 import math
 import os
+import subprocess
 from typing import cast
 
 import cv2
-import img2pdf
 import numpy as np
 from tqdm import tqdm
 
@@ -61,7 +61,7 @@ def save_batch_image(out_batches_folder: str,
                      nb_patch_in_w: int,
                      k: int) -> str:
     """Save a batch of cards into a single image."""
-    batch_path = os.path.join(out_batches_folder, f"batch_cards_{k}.png")
+    batch_path = os.path.join(out_batches_folder, f"batch_cards_{k}.jpg")
     batch_images = [load_image(os.path.join(cards_folder, name))
                     if name is not None else 255*np.ones_like(first_img)
                     for name in names[nb_patch_per_batch*k:nb_patch_per_batch*k+nb_patch_per_batch]]
@@ -86,7 +86,7 @@ def _save_back_page(out_batches_folder: str,
                     nb_patch_in_h: int,
                     nb_patch_in_w: int) -> str:
     """Generate a single back page with the back image at each card position, flipped for recto-verso."""
-    back_path = os.path.join(out_batches_folder, "batch_back.png")
+    back_path = os.path.join(out_batches_folder, "batch_back.jpg")
     back_resized = cast(NpIntArrayType, cv2.resize(back_img, (card_size_pix, card_size_pix)))
     back_flipped = cast(NpIntArrayType, cv2.flip(back_resized, 1))
     images: list[NpIntArrayType] = [back_flipped] * nb_patch_per_batch
@@ -178,10 +178,10 @@ def main(cards_folder: str,
             interleaved.append(back_path)
         batches_paths = interleaved
 
-    a4inpt = (img2pdf.mm_to_pt(210), img2pdf.mm_to_pt(297))
-    layout_fun = img2pdf.get_layout_fun(a4inpt)
-
-    with open(pdf_path, "wb") as f:
-        f.write(img2pdf.convert(batches_paths, layout_fun=layout_fun))
+    subprocess.run(
+        ["img2pdf", "--pagesize", "A4", "--fit", "into", "-o", pdf_path,
+         *batches_paths],
+        check=True,
+    )
 
     logger.info(f"Congratulations! Your Dobble has been saved at {os.path.abspath(pdf_path)}")
