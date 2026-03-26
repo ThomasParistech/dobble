@@ -2,6 +2,7 @@
 """Merge Dobble cards into a scaled PDF ready to print."""
 import math
 import os
+from typing import cast
 
 import cv2
 import img2pdf
@@ -17,6 +18,34 @@ from dobble.utils.image_loader import write_image
 from dobble.utils.logger import logger
 from dobble.utils.np_types import NpIntArrayType
 from dobble.utils.profiling import profile
+
+
+def _build_grid_image(images: list[NpIntArrayType],
+                      h_patch: NpIntArrayType,
+                      h_patch_bot: NpIntArrayType,
+                      w_patch: NpIntArrayType,
+                      w_patch_right: NpIntArrayType,
+                      nb_patch_in_h: int,
+                      nb_patch_in_w: int,
+                      default_img: NpIntArrayType) -> NpIntArrayType:
+    """Assemble a list of card images into a page grid."""
+    columns: list[cv2.typing.MatLike] = []
+    for column in range(nb_patch_in_h):
+        columns.append(h_patch)
+        temp_line = []
+        for line in range(nb_patch_in_w):
+            temp_line.append(w_patch)
+            idx = line * nb_patch_in_h + column
+            if idx < len(images):
+                temp_line.append(images[idx])
+            else:
+                temp_line.append(default_img)
+        temp_line.append(w_patch_right)
+        batch_img = cv2.hconcat(temp_line)
+        columns.append(batch_img)
+
+    columns.append(h_patch_bot)
+    return cast(NpIntArrayType, cv2.vconcat(columns))
 
 
 def save_batch_image(out_batches_folder: str,
@@ -37,33 +66,46 @@ def save_batch_image(out_batches_folder: str,
                     if name is not None else 255*np.ones_like(first_img)
                     for name in names[nb_patch_per_batch*k:nb_patch_per_batch*k+nb_patch_per_batch]]
 
-    columns: list[cv2.typing.MatLike] = []
-    for column in range(nb_patch_in_h):
-        columns.append(h_patch)
-        temp_line = []
-        for line in range(nb_patch_in_w):
-            temp_line.append(w_patch)
-            idx = line*nb_patch_in_h+column
-            if idx < len(batch_images):
-                temp_line.append(batch_images[idx])
-            else:  # if no more cards to add, pad with white
-                temp_line.append(255*np.ones_like(first_img))
-        temp_line.append(w_patch_right)
-        batch_img = cv2.hconcat(temp_line)
-        columns.append(batch_img)
-
-    columns.append(h_patch_bot)
-    batch_img = cv2.vconcat(columns)
+    default_img = 255 * np.ones_like(first_img)
+    batch_img = _build_grid_image(batch_images, h_patch, h_patch_bot,
+                                  w_patch, w_patch_right,
+                                  nb_patch_in_h, nb_patch_in_w, default_img)
 
     write_image(batch_path, batch_img)
     return batch_path
+
+
+def _save_back_page(out_batches_folder: str,
+                    back_img: NpIntArrayType,
+                    card_size_pix: int,
+                    h_patch: NpIntArrayType,
+                    h_patch_bot: NpIntArrayType,
+                    w_patch: NpIntArrayType,
+                    w_patch_right: NpIntArrayType,
+                    nb_patch_per_batch: int,
+                    nb_patch_in_h: int,
+                    nb_patch_in_w: int) -> str:
+    """Generate a single back page with the back image at each card position, flipped for recto-verso."""
+    back_path = os.path.join(out_batches_folder, "batch_back.png")
+    back_resized = cast(NpIntArrayType, cv2.resize(back_img, (card_size_pix, card_size_pix)))
+    back_flipped = cast(NpIntArrayType, cv2.flip(back_resized, 1))
+    images: list[NpIntArrayType] = [back_flipped] * nb_patch_per_batch
+    default_img = cast(NpIntArrayType, 255 * np.ones_like(back_resized))
+    page = _build_grid_image(images, h_patch, h_patch_bot,
+                             w_patch, w_patch_right,
+                             nb_patch_in_h, nb_patch_in_w, default_img)
+    # Horizontal flip so that recto-verso printing aligns correctly
+    page = cast(NpIntArrayType, cv2.flip(page, 1))
+    write_image(back_path, page)
+    return back_path
 
 
 @profile
 def main(cards_folder: str,
          out_print_folder: str,
          card_size_cm: float,
-         n_symbols_per_card: int) -> None:
+         n_symbols_per_card: int,
+         back_image_path: str | None = None) -> None:
     """Dobble cards into a scaled PDF ready to print.
 
     Args:
@@ -71,6 +113,7 @@ def main(cards_folder: str,
         out_print_folder: Output folder containing the batched cards and the PDF file
         card_size_cm: Diameter of the output Dobble cards to print
         n_symbols_per_card: Number of symbols per card
+        back_image_path: Optional path to a back image for recto-verso printing
     """
     names = list_image_files(cards_folder)
 
@@ -122,6 +165,18 @@ def main(cards_folder: str,
                                       nb_patch_in_w,
                                       k)
                      for k in tqdm(range(nb_of_batch), "Batch cards")]
+
+    if back_image_path is not None:
+        back_img = load_image(back_image_path)
+        back_path = _save_back_page(batches_folder, back_img, card_size_pix,
+                                    h_patch, h_patch_bot, w_patch, w_patch_right,
+                                    nb_patch_per_batch, nb_patch_in_h, nb_patch_in_w)
+        # Interleave: front, back, front, back, ...
+        interleaved: list[str] = []
+        for bp in batches_paths:
+            interleaved.append(bp)
+            interleaved.append(back_path)
+        batches_paths = interleaved
 
     a4inpt = (img2pdf.mm_to_pt(210), img2pdf.mm_to_pt(297))
     layout_fun = img2pdf.get_layout_fun(a4inpt)
