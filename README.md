@@ -46,6 +46,12 @@ To use cards with hexagonal shapes (easier to cut), add the `hexagon` flag:
 python3 -m dobble --hexagon --symbols_folder assets/symbols_examples/ --output_folder data/result
 ```
 
+To generate a PDF with card backs for **recto-verso (double-sided) printing**, use the `back_image_path` option:
+```
+python3 -m dobble --back_image_path assets/back.png --symbols_folder assets/symbols_examples/ --output_folder data/result
+```
+This inserts a back page after each front page in the PDF. The back image is resized to fill the card bounding box (works with both circular and hexagonal cards) and the page layout is horizontally mirrored so that card backs align with their fronts when printed double-sided (long-edge flip). Use your printer's duplex/recto-verso setting to print.
+
 *Tip: you can use a "circle punch" to cut the printed cards.*
 
 
